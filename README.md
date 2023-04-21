@@ -51,6 +51,7 @@ The following functions are currently available:
 - Simply send a message and press enter and wait for a response. No need to @ the bot, or start a thread or anything.
 
 There are many commands as well:
+
 Personas:
 
 - !wheatley - Default persona. Knows all.
@@ -59,7 +60,7 @@ Personas:
 
 Commands:
 
-- !thanks - this resets the conversation, as a larger conversation costs more money, just say !thanks when you're done a topic to save money.
+- !thanks - this resets the conversation, as a larger conversation costs more money, just say !thanks when you're done a topic to wipe conversation history and save money.
 - !search - enter something you want the bot to search google for and comment on, eg '!search what will the weather be in chicago tomorrow?' it will create it's own search term, scrape the top 3 websites from a google search, then answer your original question based on the info it finds. VERY useful.
 - !summarize - summarizes a link provided (the first 2000 words at least), eg !summarize https://example.com/
 - !prompt - describe a picture, and the bot will create a massive prompt to be used in image gen software, or with the !image prompt (2cents per pic!)
@@ -76,13 +77,13 @@ Local commands:
 These are specific to my Ubuntu box, probably won't work without editting for you.
 
 - !speedtest - requires speedtestcli be installed first, then runs a speedtest on the computer this bot is on, then returns the results.
-- !network - scans your home network (requires nmap installed) and reports on IPs of hosts that are up.
-- !cpu - reports on CPU usage percent, followed by temps. hardcoded to 4 cores as that's all my server has
+- !network - scans your network that the bot is on (requires nmap installed) and reports on IPs of hosts that are up. Maybe don't do this unless it's on your home network..
+- !cpu - reports on CPU usage percent, followed by temps. hardcoded to 4 cores as that's all my server has - no use, just fun
 
 Time Triggered events:
-- by default you will get a morning message and weather report at 745am (just change this in the code if it's unwanted)
+- by default you will get a morning message and weather report at 745am (just change this in the code if it's unwanted) (IF you have the google api key filled out)
 - a reminder to do your physio at 7pm ;)
-- cybersecurity new roundup at 9am
+- cybersecurity news roundup at 9am
 - These are just placeholders, change them to things that work for you or delete/comment them out
 
 ## Getting Started
