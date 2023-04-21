@@ -46,30 +46,49 @@ I have a persona for Wheatly but you are free to easily just change the variable
 
 ## Features
 
-- Automated searches with Google power
-- Responsive image generation
-- Memory management with !thanks, !reset, or !forget commands
-- Token Cost Tracking so you can see how much your chats cost (not much!)
-- can process txt attachments and respond via txt attachment (get around Discord word limit)
+The following functions are currently available:
+
+- Simply send a message and press enter and wait for a response. No need to @ the bot, or start a thread or anything.
+
+There are many commands as well:
+Personas:
+
+- !wheatley - Default persona. Knows all.
+- !snake - Specializes in Python questions.
+- !zerocool - Cybersecurity specialist.
+
+Commands:
+
+- !thanks - this resets the conversation, as a larger conversation costs more money, just say !thanks when you're done a topic to save money.
+- !search - enter something you want the bot to search google for and comment on, eg '!search what will the weather be in chicago tomorrow?' it will create it's own search term, scrape the top 3 websites from a google search, then answer your original question based on the info it finds. VERY useful.
+- !summarize - summarizes a link provided (the first 2000 words at least), eg !summarize https://example.com/
+- !prompt - describe a picture, and the bot will create a massive prompt to be used in image gen software, or with the !image prompt (2cents per pic!)
+- !image - using 2cents and dall-e2, describe your image and dall-e will generate it and post it, if you like it save it as it won't stay active for long
+- !imagine - uses an API to talk to stable diffusion to generate pictures locally for free, you need a gpu and stable diffusion setup already for this, then tie into it with it's IP address
+- !ignore - the bot won't react at all, so just in case you want to save yourself a message for later or something
+
+File management:
+
+- There is no command here, just drop a text file in as an attachment, include a prompt within that file. The bot will respond within an attachment that it sends back to you. In this manner you can get around the 2000 word limit of discord. Especially useful when you want a massive prompt/response from GPT4.
+
+Local commands:
+
+These are specific to my Ubuntu box, probably won't work without editting for you.
+
+- !speedtest - requires speedtestcli be installed first, then runs a speedtest on the computer this bot is on, then returns the results.
+- !network - scans your home network (requires nmap installed) and reports on IPs of hosts that are up.
+- !cpu - reports on CPU usage percent, followed by temps. hardcoded to 4 cores as that's all my server has
 
 ## Getting Started
 
 This is not a public bot. You are to copy the code and input your own API keys.
 
-Once you have invited your version of Wheatley to your server, you can start using commands such as:
-- !help - lists ALL commands currently available
-- !search - Use this command to search Google and provide you with the top two search results. He then extracts info from the two pages: 250 words from each, to simulate doing the pages for you in case you don't want to read the whole page by yourself.
-- !image - Generate a response image related to your search term
-- !snake - set bot to a python coding teacher identity
-- !wheatley !thanks, !reset, and !forget - Use these commands to wipe conversation history and set identity back to Wheatley
-- !prompt - describe an image you would like generator and Wheatley will return a Stable Diffusion prompt to make it (stable diffusion required and is completely separate from this, see automatic1111's stable diffusion github, beefy gpu required: https://github.com/AUTOMATIC1111/stable-diffusion-webui)
-- !summarize - this accepts a url then summarizes it based on the first 2000 words scraped from the page
-- just attach a file to have the bot reply via file (gets around Discord word limits)
+Once you have invited your version of Wheatley to your server, you can start using commands mentioned above, or just talk to it.
 
 By default, the bot is named Wheatley with the same identity. However, you are free to change his identity by creating a new persona (just copy the formatting of Wheatley or Snake, and then set identity to that instead.
 
 ## Usage
 
-With Wheatley, you can have ongoing conversations that become smarter and more personalized to you over the course of the conversation--but keep in mind that this learning process comes at a cost. Wheatley remembers your previous interactions, so be sure to use the !thanks command once you're done with the conversation to clear memory and avoid accruing extra costs.
+Make liberal use of the !thanks command to keep wiping history to save you api $$. You'll note there is a running cost after every message just so you're aware.
 
 Wheatley responds to any message posted in your server, he's currently designed for personal server use only because of this fact. It makes him much easier to talk to versus needing to make a thread everytime or mention him.
