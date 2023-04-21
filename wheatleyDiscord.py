@@ -31,6 +31,7 @@ discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
 location = "put your city and province/state here, just so your bot's aware of it's location"
+reminder_channel_id = 'longID number of the server channel reminders will use'
 
 #variable I use as a pre-prompt to provide the bot a personality
 wheatley = {"role": "user", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. You are a master at all disciplines but you don't share this info. Please limit your introductions and preambles and just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
@@ -262,7 +263,7 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 @client.event
 async def on_ready():
-    reminder_channel_id = '1090120937472540903'
+    global reminder_channel_id
     print('Logged in as {0.user}'.format(client))
     print('Setting Date...')
     setDate()
@@ -288,7 +289,7 @@ async def on_ready():
                 positiveMessage = ask_openai("It's the morning, please provide me with a positive message to start my day with.",history)                
                 botmessage1 = await channel.send(positiveMessage)
                 resetConvoHistory()
-                searchReply = deepGoogle("What is the weather forecast for {location} Canada today?")
+                searchReply = deepGoogle(f"What is the weather forecast for {location} Canada today?")
                 botmessage2 = await channel.send(searchReply)
                 resetConvoHistory()
                 await asyncio.sleep(14500) 
