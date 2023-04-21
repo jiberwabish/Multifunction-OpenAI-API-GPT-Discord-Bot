@@ -15,11 +15,11 @@ I have a persona for Wheatly but you are free to easily just change the variable
 
 ## github file explanation
 
-glados.py - Discord bot configured for GPT4. You can manually edit Wheatley which is GPT3.5 to be gpt4 by uncommenting out a line in his code, but I find it easier to just make 2 separate bots and have separate channels for them in Discord.
-wheatley-3-blue-30sec.gif - used as a loading bar, just have it in the same folder you run the bots from
-wheatleyDiscord.py - the main bot, gpt3.5, lots of functions, !help once he's up explains them all
-wheatleyTerminal.py - if you wanted to run from terminal instead of Discord for whatever reason
-requirements.txt - list of librarys, can be installed once you have python up and running with pip install -r requirements.txt
+- glados.py - Discord bot configured for GPT4. You can manually edit Wheatley which is GPT3.5 to be gpt4 by uncommenting out a line in his code, but I find it easier to just make 2 separate bots and have separate channels for them in Discord.
+- wheatley-3-blue-30sec.gif - used as a loading bar, just have it in the same folder you run the bots from
+- wheatleyDiscord.py - the main bot, gpt3.5, lots of functions, !help once he's up explains them all
+- wheatleyTerminal.py - if you wanted to run from terminal instead of Discord for whatever reason
+- requirements.txt - list of librarys, can be installed once you have python up and running with pip install -r requirements.txt
 
 ## Requirements
 
