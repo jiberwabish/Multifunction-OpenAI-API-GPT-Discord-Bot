@@ -23,11 +23,12 @@ requirements.txt - list of librarys, can be installed once you have python up an
 
 ## Requirements
 
-- free Google API Search key and engine ID code - optional but highly recommended
-- OpenAI API key - ensure billing is setup
+- free Google API Search key and engine ID code - optional but highly recommended to use the !search feature, https://developers.google.com/webmaster-tools/search-console-api/v1/configure
+- OpenAI API key - get an account from beta.openai.com/playground ensure billing is setup to increase your rate limits, generate an api key in settings
 - python 3.10 at least
 - then once python is installed, run pip install -r requirements.txt to install all the libraries needed
-- a Discord Bot's token - created from the Discord Developer Portal
+- a Discord Bot's token - created from the Discord Developer Portal, see below
+
 ## Discord Bot setup How To
 - log in to Discord client and make yourself a server with just you in it
 - log in to the Discord Developer Portal: [Discord Developer Portal](https://discord.com/developers)
