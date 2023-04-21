@@ -79,9 +79,15 @@ These are specific to my Ubuntu box, probably won't work without editting for yo
 - !network - scans your home network (requires nmap installed) and reports on IPs of hosts that are up.
 - !cpu - reports on CPU usage percent, followed by temps. hardcoded to 4 cores as that's all my server has
 
+Time Triggered events:
+- by default you will get a morning message and weather report at 745am (just change this in the code if it's unwanted)
+- a reminder to do your physio at 7pm ;)
+- cybersecurity new roundup at 9am
+- These are just placeholders, change them to things that work for you or delete/comment them out
+
 ## Getting Started
 
-This is not a public bot. You are to copy the code and input your own API keys.
+This is not a public bot. You are to copy the code and input your own API keys and pull it into a private discord server.
 
 Once you have invited your version of Wheatley to your server, you can start using commands mentioned above, or just talk to it.
 
