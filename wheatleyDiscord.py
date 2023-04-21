@@ -326,10 +326,6 @@ async def on_message(message):
     global image
 
     #set name (and soon to be picture) to Wheatley by default
-    """member=message.guild.me
-    await member.edit(nick='Wheatley')
-    with open('/home/stavros/DiscordGPT/wheatley/wheatleyComic.png', 'rb') as image:
-            await client.user.edit(avatar=image.read())"""
     userName = message.author
     mention = userName.mention
     userMessage = message.content
