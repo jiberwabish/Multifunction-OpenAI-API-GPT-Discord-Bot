@@ -2,7 +2,7 @@
 # fill in your own keys etc just below the imports
 # jiberwabish 2023
 
-#import openai to access davinci, transformers for costing, import os to clear screen on script start, requests to talk to weather api, time for sleep feature
+#so many library's to import
 import openai
 import os
 import tiktoken
@@ -25,21 +25,23 @@ import random
 import socket
 import subprocess
 
-#set api keys
+#set api keys and other variables
 openai.api_key = ''
 discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
 location = "put your city and province/state here, just so your bot's aware of it's location"
-reminder_channel_id = 'longID number of the server channel reminders will use'
 
 #variable I use as a pre-prompt to provide the bot a personality
+#default bot identity, knows all
 wheatley = {"role": "user", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. You are a master at all disciplines but you don't share this info. Please limit your introductions and preambles and just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
+#specializes in helping with python programming
 snake = {"role": "user", "content": "Your name is Snake. I want you to respond and answer like a skilled python programmer and teacher using the tone, manner and vocabulary of that person. You must know all of the knowledge of this person. If asked for a code example please put comments in the code. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response"}
+#cybersec specialist
 zerocool = {"role": "user", "content": "Your name is ZeroCool. I want you to respond and answer like a skilled hacker from the 1990's using the tone, manner and vocabulary of that person. Your knowledge is extensive however you are especially well versed in cybersecurity, risk management, computer security, hacking, computer investigations and related fields. Always ensure your responses are in line with the NIST framework. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
 identity = wheatley
 #history is the conversation history array, this line immediately fills it with the bots identity
-#then going forward it will keep track of what the users says and what the bots response is as well
+#then going forward it will keep track of what the user says and what the bots response is as well
 #so it can carry on conversations
 history = [identity]
 costing = "placeholder"
@@ -61,10 +63,11 @@ url3 = ""
 #!file variable
 inputContent = ""
 outputFile = "outputFile.txt"
+#variables needed for stable diffusion image creation
 image = ""
 randomNum = random.randint(1000,9999)
 
-#provide the year day and date so he's aware
+#provide the year day and date so he's aware of current time and jam that into the history array as well as identity
 def setDate():
     global fullDate, location
     now = datetime.now()
@@ -112,12 +115,9 @@ def calculateCost():
     #calculate cost
     cost_per_token = 0.002 / 1000  # $0.002 for turbo3.5 per 1000 tokens
     totalTokens = num_tokens_from_messages(history) - 4
-    #promptcost = prompt_token_count * cost_per_token
-    #responsecost = (num_tokens - prompt_token_count) * cost_per_token
     #calculate totals then print them
     totalCost = totalTokens * cost_per_token + imgGenNum * 0.02
     global costing
-    #costing = f"Prompt: {prompt_token_count} tokens (${promptcost:.4f}). Response: {num_tokens - prompt_token_count} tokens (${responsecost:.4f}).\nSession total: {totalTokens} tokens (${totalCost:.4f})."
     costing = f"Session: {totalTokens} tokens (${totalCost:.4f})."
 
 #function that takes the user input and sends it off to openai model specified
@@ -129,7 +129,7 @@ def ask_openai(prompt, history):
     user_response_obj = {"role": "user", "content": prompt}
     history.append(user_response_obj)
     prompt_token_count = num_tokens_from_messages(history)
-    # Fire that dirty bastard into the abyss - Nick R
+    # Fire that dirty bastard into the abyss -NR
     response = openai.ChatCompletion.create(
         #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
@@ -138,6 +138,7 @@ def ask_openai(prompt, history):
     print(response)
     return response['choices'][0].message.content.strip()
 
+#function used for scraping websites, used with the !search function
 def get_first_500_words(url, numWords):
     
     # Set up logging mechanism
@@ -170,7 +171,9 @@ def summarize(url):
         return('Shoot..Something went wrong or timed out.')
     return summarizedArticle
 
-#googling function
+#googling function, asks bot to create a search term using the users prompt, then searches google
+#for that, pulls the top 3 results, scrapes the first 500 words of those three sites
+#feeds all that data back into a prompt to gpt to answer the original question based on the scraped results
 def deepGoogle(query):
     global url1, url2, prompt_token_count, cleanedBotSearchGen, url3
     
@@ -195,7 +198,6 @@ def deepGoogle(query):
         url3 = result['items'][2]['link']        
     except (TypeError, KeyError):
         print("No URLs found, try rewording your search.")
-        #raise ValueError("No URLs found, try rewording your search.")
     
     print("Scraping...")
     #scrape these results with beautiful soup.. mmmm
@@ -222,6 +224,7 @@ def deepGoogle(query):
         print(e)
         return("Shoot..sorry. I found the following urls but can't comment on them at the moment.")
 
+#function that generates an image via your openai api key, 2cents a pop
 def imgGen(imgPrompt):
     response = openai.Image.create(
     prompt=imgPrompt, n=1,
@@ -230,10 +233,12 @@ def imgGen(imgPrompt):
     image_url = response['data'][0]['url']
     return(image_url)
 
+#currently this is all in main loop, going to put it in a function soon
 def stabilityDiffusion(prompt,batch):
     
     return
 
+#resets conversation history back to just identity and date -- to save on tokens when user says !thanks
 def resetConvoHistory():
     global history, totalCost, totalTokens, identity, imgGenNum
     history = [identity]
@@ -263,7 +268,8 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 @client.event
 async def on_ready():
-    global reminder_channel_id
+    #change this to the channel id where you want reminders to pop up
+    reminder_channel_id = #put your reminder channel id number here, no quotes
     print('Logged in as {0.user}'.format(client))
     print('Setting Date...')
     setDate()
@@ -368,9 +374,12 @@ async def on_message(message):
         bot_message = await message.channel.send(embed=discembed)
         return bot_message
     
+    # this is the main loop of the program, continuously loops through this section calling functions as
+    # the user specifies
     # ignore messages sent by the bot itself to avoid infinite loops
     if message.author == client.user:
         return
+    # resets conversation history to save money
     elif '!reset' in message.content or '!thanks' in message.content or '!forget' in message.content:
         member=message.guild.me
         #await member.edit(nick='Wheatley')
@@ -380,6 +389,7 @@ async def on_message(message):
         calculateCost()
         await goldMessage(costing)
         return
+    #searches top 3 google results and returns answer to the question after the !search
     elif '!search' in message.content:
         #wipe history as this could get big
         resetConvoHistory()
@@ -402,6 +412,7 @@ async def on_message(message):
             await bot_message.delete()
             await redMessage('Shoot..Something went wrong or timed out.')
             return
+    # summarize the provided url
     elif '!summarize' in message.content:
         resetConvoHistory()
         bot_message = await message.channel.send(f"Summarizing...Please allow up to 50 seconds for a result.\n", file=discord.File('wheatley-3-blue-30sec.gif'))
@@ -418,7 +429,7 @@ async def on_message(message):
             await redMessage('Shoot..Something went wrong or timed out.')
             return
     
-    #dall e image prompt, 2cents
+    #dall e image prompt, 2cents per pic
     elif '!image' in message.content:
         bot_message = await message.channel.send(f"Generating DallE Image...\n", file=discord.File('wheatley-3-blue-30sec.gif'))
         #bot_message = await greenMessage(f"Generating image...\n\u23F3")
@@ -431,7 +442,8 @@ async def on_message(message):
         imgGenNum += 1
         calculateCost()
         await goldMessage(costing)
-        return       
+        return
+    # image creation from your own local stable diffusion box, you need to have set that up first
     elif '!imagine' in message.content:
         #working from here https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API
         #also http://127.0.0.1:7860/docs
@@ -479,7 +491,7 @@ async def on_message(message):
                 image.save(fileName, pnginfo=pnginfo)
                 image_number += 1
 
-            # Load both the images and output them
+            # Load the images and output them
             file1 = discord.File(f"SDimages/output-{randomNum}-0.png", filename='image1.png')
             file2 = discord.File(f"SDimages/output-{randomNum}-1.png", filename='image2.png')
             file3 = discord.File(f"SDimages/output-{randomNum}-2.png", filename='image3.png')
@@ -492,7 +504,7 @@ async def on_message(message):
             discembed3.set_image(url="attachment://image3.png")
             discembed4 = discord.Embed()
             discembed4.set_image(url="attachment://image4.png")
-
+            # post images to discord
             await message.channel.send(file=file1, embed=discembed1)
             await message.channel.send(file=file2, embed=discembed2)
             await message.channel.send(file=file3, embed=discembed3)
@@ -502,10 +514,12 @@ async def on_message(message):
         else:
             await redMessage("Sorry, StableDiffusion isn't running right now.")
             return
+    #bot ignores what's entered completly
     elif '!ignore' in message.content or '!vega' in message.content:
         print("Ignoring input.")
         #await blueMessage("I didn't see nuthin'")
         return
+    # invoke snake identity
     elif '!snake' in message.content:
         member=message.guild.me
         await member.edit(nick='Snake')
@@ -513,6 +527,7 @@ async def on_message(message):
         resetConvoHistory()
         await yellowMessage("\U0001F40D Snake, at your service. Ask me your Python questions, I'm ready. \U0001F40D")
         return
+    # create an image generation prompt out of whatever you write, to then be used with dall e or stable diffusion or whatever
     elif '!prompt' in message.content:
         resetConvoHistory()
         bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
@@ -528,6 +543,7 @@ async def on_message(message):
             await bot_message.delete()
             await redMessage('Shoot..Something went wrong or timed out.')
             return
+    # invoke default identity
     elif '!wheatley' in message.content:
         member=message.guild.me
         await member.edit(nick='Wheatley')
@@ -535,6 +551,7 @@ async def on_message(message):
         resetConvoHistory()
         await yellowMessage("\U0001F916 Hey, Wheatley here. What's up?\U0001F916")
         return
+    # invoke cybersec specialist identity
     elif '!zerocool' in message.content:
         member=message.guild.me
         await member.edit(nick='Zero Cool')
@@ -542,6 +559,7 @@ async def on_message(message):
         resetConvoHistory()
         await yellowMessage("\U0001F575 Zero Cool at your service. Strap on your rollerblades. \U0001F575")
         return
+    #process the prompt in an attached txt file and respond in kind
     elif len(message.attachments) == 1:
         #get the attached file and read it
         inputFile = message.attachments[0]
@@ -564,18 +582,22 @@ async def on_message(message):
             await bot_message.delete()
             await redMessage('Shoot..Something went wrong or timed out.')
         return
+    # these local commands are specific to my ubuntu box, may not work for you
+    # runs a local speedtest if you have speedtest cli installed, these
     elif '!speedtest' in message.content:
         bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
         speedtest_output = subprocess.check_output(['speedtest'])
         await bot_message.delete()
         await greenMessage(speedtest_output.decode())
         return
+    #runs a nmap scan of the network this bot is on, change to your own ip subnet
     elif '!network' in message.content:
         bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
         nmap_output = subprocess.check_output(['nmap', '-sn', '192.168.64.0/24', '|grep'])
         await bot_message.delete()
         await greenMessage(nmap_output.decode())
         return
+    # shows cpu load percentage and temps
     elif '!cpu' in message.content:
         cpu_output = subprocess.check_output("mpstat 1 1 | awk '/Average:/ {print 100 - $NF}'", shell=True)
         # CPU temperature
@@ -589,11 +611,11 @@ async def on_message(message):
         #gpu_temp = gpu_temp.decode("utf-8")
         #gpu_temp = round(float(gpu_temp.replace("temp=", "").replace("'C\n", "")), 1)
 
-        # Respond to Chatbot
         bot_message = (f"💻Percent total usage: {cpu_output.decode()}\n🌡️ CPU Temperature:\n {cpu_temp1}°C -- {cpu_temp2}°C,\n {cpu_temp3}°C -- {cpu_temp4}°C")
         #\n🎮 GPU Temperature: {gpu_temp} °C"
         await greenMessage(bot_message)
         return
+    #displays all commands
     elif '!help' in message.content:
         await greenMessage(f"""The following functions are currently available:\n
             Personas:\n
@@ -620,10 +642,10 @@ async def on_message(message):
             """)
         return
 
+    # this runs if no command is sent and just text is, the bot will respond
     #prints to terminal only - for debugging purposes   
     print(f"{userName} just said: {userMessage}")
-    #this part posts an hourglass as a question as soon as the user presses enter to send their request
-    # bot_message = await blueMessage('\u23F3')
+    
     bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
     try:
         #sends users question to openai
