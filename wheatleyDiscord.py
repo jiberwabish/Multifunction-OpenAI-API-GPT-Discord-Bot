@@ -297,7 +297,20 @@ async def greenMessage(messageToSend,channel):
     )
     bot_message = await channel.send(embed=discembed)
     return bot_message
-
+async def purpleMessage(messageToSend,channel):
+    discembed = discord.Embed(
+        description=f"{messageToSend}",
+        color=discord.colour.Colour.purple()
+    )
+    bot_message = await channel.send(embed=discembed)
+    return bot_message
+async def blurpleMessage(messageToSend,channel):
+    discembed = discord.Embed(
+        description=f"{messageToSend}",
+        color=discord.colour.Colour.blurple()
+    )
+    bot_message = await channel.send(embed=discembed)
+    return bot_message
 #currently this is all in main loop, going to put it in a function soon
 async def stabilityDiffusion(prompt,channel):
     if is_port_listening("192.168.64.123","7860") == True:
@@ -310,9 +323,9 @@ async def stabilityDiffusion(prompt,channel):
                     "height": 768,
                     "batch_size": 4,
                     "sampler_name": "DPM++ 2M Karras",
-                    #"enable_hr": True,
-                    #"hr_scale": 2,
-                    #"denoising_strength": 0
+                    # "enable_hr": True,
+                    # "hr_scale": 4,
+                    # "denoising_strength": 1
                 }
 
         # Call stablediffusion API
@@ -357,7 +370,7 @@ async def stabilityDiffusion(prompt,channel):
         discembed3.set_image(url="attachment://image3.png")
         discembed4 = discord.Embed()
         discembed4.set_image(url="attachment://image4.png")
-        # post images to discord
+        #post images to discord
         await channel.send(file=file1, embed=discembed1)
         await channel.send(file=file2, embed=discembed2)
         await channel.send(file=file3, embed=discembed3)
@@ -383,12 +396,12 @@ async def promptCreation(prompt,channel):
         await redMessage('Shoot..Something went wrong or timed out.',channel)
         return
 
+@client.event
 async def on_ready():
     #change this to the channel id where you want reminders to pop up
     reminder_channel_id = 1090120937472540903
     print('Logged in as {0.user}'.format(client))
     print('Setting Date...')
-    await greenMessage("Hey boss, how can I help?",1079243349237698633)
     setDate()
 
 #defs to remind me of things
@@ -397,7 +410,7 @@ async def on_ready():
             now = datetime.now()  # Get the current datetime
             if now.hour == 17 and now.minute == 00:
                 channel = await client.fetch_channel(reminder_channel_id)
-                exerciseReminderMessage = await channel.send("Make sure to do your physio.\n- wall stretch - 20 total\n- chair pushups - 20 total\n- 15 rows with 10 tricep extensions per arm\n- 20 shrugs\n- corner stretch")
+                exerciseReminderMessage = await purpleMessage("Make sure to do your physio.\n- wall stretch - 20 total\n- chair pushups - 20 total\n- 15 rows with 10 tricep extensions per arm\n- 20 shrugs\n- corner stretch",channel)
                 await asyncio.sleep(14400) 
                 await exerciseReminderMessage.delete()
             await asyncio.sleep(60)  # Wait for 1 min before checking again
@@ -410,15 +423,19 @@ async def on_ready():
             if now.hour == 7 and now.minute == 45:
                 channel = await client.fetch_channel(reminder_channel_id)
                 positiveMessage = ask_openai("It's the morning, please provide me with a positive message to start my day with.",history)                
-                botmessage1 = await channel.send(positiveMessage)
+                botmessage1 = await purpleMessage(positiveMessage,channel)
                 resetConvoHistory()
                 searchReply = deepGoogle(f"What is the weather forecast for {location} today?")
-                botmessage2 = await channel.send(searchReply)
+                botmessage2 = await blurpleMessage(searchReply,channel)
+                botmessage3 = await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
                 resetConvoHistory()
+                #weatherPrompt = await promptCreation(searchReply,reminder_channel_id)
+                #await stabilityDiffusion(weatherPrompt,reminder_channel_id)
                 await asyncio.sleep(14500) 
                 await botmessage1.delete()
                 await asyncio.sleep(60)
-                await botmessage2.delete()    
+                await botmessage2.delete()
+                await botmessage3.delete()    
             await asyncio.sleep(60)  # Wait for 1 min before checking again
     #start timer loop
     client.loop.create_task(daily_weather())
@@ -429,11 +446,14 @@ async def on_ready():
             if now.hour == 9 and now.minute == 00:
                 channel = await client.fetch_channel(reminder_channel_id)
                 newsRequest = deepGoogle("What is the latest in Cybersecurity news? Summarize with bullet points. Do not limit your search to a single site.")                
-                botmessage1 = await channel.send(newsRequest)
-                await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
+                cybermessage1 = await purpleMessage(newsRequest,channel)
+                cybermessage2 = await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
                 resetConvoHistory()
-                await asyncio.sleep(14500) 
-                await botmessage1.delete()
+                await asyncio.sleep(14500)
+                await cybermessage1.delete()
+                await asyncio.sleep(60)
+                await cybermessage2.delete() 
+                
             await asyncio.sleep(60)  # Wait for 1 min before checking again
     #start timer loop
     client.loop.create_task(cyberNews())
@@ -646,7 +666,8 @@ async def on_message(message):
             !summarize - summarizes a link provided (the first 2000 words at least), eg !summarize https://example.com\n
             !prompt - describe a picture, and the bot will create a massive prompt to be used in image gen software, or with the !image prompt (2cents per pic!)\n
             !image - using 2cents and dall-e2, describe your image and dall-e will generate it and post it, if you like it save it as it won't stay active for long\n
-            !imagine - uses an API to talk to stable diffusion to generate pictures locally for free, you need a gpu and stable diffusion setup already for this, then tie into it with it's IP address
+            !imagine - uses an API to talk to stable diffusion to generate pictures locally for free, you need a gpu and stable diffusion setup already for this, then tie into it with it's IP address\n
+            !superimagine - uses prompt creation and then image creation based on that
             !ignore - the bot won't react at all, so just in case you want to save yourself a message for later or something\n
             File management:\n
             There is no command here, just drop a text file in as an attachment, include a prompt within that file. The bot will respond within an attachment that it sends back to you.\n
