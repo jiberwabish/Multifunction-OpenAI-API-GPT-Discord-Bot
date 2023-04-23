@@ -1,8 +1,8 @@
 # host on your own computer and private server and connect to your Discord bot with your Token
 # fill in your own keys etc just below the imports
-# jiberwabish 2023
+# Stavros 2023
 
-#so many library's to import
+#so many libraries to import
 import openai
 import os
 import tiktoken
@@ -25,23 +25,24 @@ import random
 import socket
 import subprocess
 
-#set api keys and other variables
+#set api keys and other variabls
 openai.api_key = ''
 discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
-location = "put your city and province/state here, just so your bot's aware of it's location"
+location = ""
+
 
 #variable I use as a pre-prompt to provide the bot a personality
-#default bot identity, knows all
+#default identity, knows all
 wheatley = {"role": "user", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. You are a master at all disciplines but you don't share this info. Please limit your introductions and preambles and just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
-#specializes in helping with python programming
+#persona specializing in python help
 snake = {"role": "user", "content": "Your name is Snake. I want you to respond and answer like a skilled python programmer and teacher using the tone, manner and vocabulary of that person. You must know all of the knowledge of this person. If asked for a code example please put comments in the code. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response"}
-#cybersec specialist
+#cybersec persona
 zerocool = {"role": "user", "content": "Your name is ZeroCool. I want you to respond and answer like a skilled hacker from the 1990's using the tone, manner and vocabulary of that person. Your knowledge is extensive however you are especially well versed in cybersecurity, risk management, computer security, hacking, computer investigations and related fields. Always ensure your responses are in line with the NIST framework. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
 identity = wheatley
 #history is the conversation history array, this line immediately fills it with the bots identity
-#then going forward it will keep track of what the user says and what the bots response is as well
+#then going forward it will keep track of what the users says and what the bots response is as well
 #so it can carry on conversations
 history = [identity]
 costing = "placeholder"
@@ -67,7 +68,7 @@ outputFile = "outputFile.txt"
 image = ""
 randomNum = random.randint(1000,9999)
 
-#provide the year day and date so he's aware of current time and jam that into the history array as well as identity
+#provide the year day and date so he's aware and then jam that into the history variable
 def setDate():
     global fullDate, location
     now = datetime.now()
@@ -115,7 +116,6 @@ def calculateCost():
     #calculate cost
     cost_per_token = 0.002 / 1000  # $0.002 for turbo3.5 per 1000 tokens
     totalTokens = num_tokens_from_messages(history) - 4
-    #calculate totals then print them
     totalCost = totalTokens * cost_per_token + imgGenNum * 0.02
     global costing
     costing = f"Session: {totalTokens} tokens (${totalCost:.4f})."
@@ -138,7 +138,7 @@ def ask_openai(prompt, history):
     print(response)
     return response['choices'][0].message.content.strip()
 
-#function used for scraping websites, used with the !search function
+#function used for scraping websites, used with the !search command
 def get_first_500_words(url, numWords):
     
     # Set up logging mechanism
@@ -233,11 +233,6 @@ def imgGen(imgPrompt):
     image_url = response['data'][0]['url']
     return(image_url)
 
-#currently this is all in main loop, going to put it in a function soon
-def stabilityDiffusion(prompt,batch):
-    
-    return
-
 #resets conversation history back to just identity and date -- to save on tokens when user says !thanks
 def resetConvoHistory():
     global history, totalCost, totalTokens, identity, imgGenNum
@@ -248,7 +243,7 @@ def resetConvoHistory():
     totalTokens = 0
     imgGenNum = 0
     return
-#used to see if SD is up and running
+#used to see if my stable diffusion computer is up and running
 def is_port_listening(ip_address, port):
     try:
         s = socket.create_connection((ip_address, port), timeout=1)
@@ -266,23 +261,145 @@ intents.members = True
 client = discord.Client(intents=intents)
 bot = commands.Bot(command_prefix='/', intents=intents)
 
-@client.event
+#message functions to easily print in color boxes
+async def blueMessage(messageToSend,channel):
+    discembed = discord.Embed(
+        description=f"{messageToSend}",
+        color=discord.colour.Colour.dark_blue()
+    )
+    bot_message = await channel.send(embed=discembed)
+    return bot_message
+async def yellowMessage(messageToSend,channel):
+    discembed = discord.Embed(
+        description=f"{messageToSend}",
+        color=discord.colour.Colour.yellow()
+    )
+    bot_message = await channel.send(embed=discembed)
+    return bot_message
+async def goldMessage(messageToSend,channel):
+    discembed = discord.Embed(
+        description=f"{messageToSend}",
+        color=discord.colour.Colour.dark_gold()
+    )
+    bot_message = await channel.send(embed=discembed)
+    return bot_message
+async def redMessage(messageToSend,channel):
+    discembed = discord.Embed(
+        description=f"{messageToSend}",
+        color=discord.colour.Colour.red()
+    )
+    bot_message = await channel.send(embed=discembed)
+    return bot_message
+async def greenMessage(messageToSend,channel):
+    discembed = discord.Embed(
+        description=f"{messageToSend}",
+        color=discord.colour.Colour.dark_green()
+    )
+    bot_message = await channel.send(embed=discembed)
+    return bot_message
+
+#currently this is all in main loop, going to put it in a function soon
+async def stabilityDiffusion(prompt,channel):
+    if is_port_listening("192.168.64.123","7860") == True:
+        bot_message = await yellowMessage(f"Generating 4 768x768 Stable Diffusion Images...\n",channel) 
+        bot_messagePart2 = await channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
+        payload = {
+                    "prompt": prompt,
+                    "steps": 37,
+                    "width": 768,
+                    "height": 768,
+                    "batch_size": 4,
+                    "sampler_name": "DPM++ 2M Karras",
+                    #"enable_hr": True,
+                    #"hr_scale": 2,
+                    #"denoising_strength": 0
+                }
+
+        # Call stablediffusion API
+        imageResponse = requests.post(url=f'http://192.168.64.123:7860/sdapi/v1/txt2img', json=payload)
+        # Delete loading bar
+        await bot_message.delete()
+        await bot_messagePart2.delete()
+        
+        r = imageResponse.json()
+
+        # Counter for image numbers
+        image_number = 0
+
+        # Decode the images and put each into a 'PIL/Image' object
+        for i in r['images']:
+            image = Image.open(io.BytesIO(base64.b64decode(i.split(",", 1)[0])))
+
+            # Save the image to file
+            fileName = f"SDimages/output-{randomNum}-{image_number}.png"
+            
+            png_payload = {
+                "image": "data:image/png;base64," + i
+            }
+            response2 = requests.post(url=f'http://192.168.64.123:7860/sdapi/v1/png-info', json=png_payload)
+            #print(response2)
+            pnginfo = PngImagePlugin.PngInfo()
+            pnginfo.add_text("parameters", response2.json().get("info"))
+            image.save(fileName, pnginfo=pnginfo)
+            image_number += 1
+
+        # Load the images and output them
+        file1 = discord.File(f"SDimages/output-{randomNum}-0.png", filename='image1.png')
+        file2 = discord.File(f"SDimages/output-{randomNum}-1.png", filename='image2.png')
+        file3 = discord.File(f"SDimages/output-{randomNum}-2.png", filename='image3.png')
+        file4 = discord.File(f"SDimages/output-{randomNum}-3.png", filename='image4.png')
+        
+        discembed1 = discord.Embed()
+        discembed1.set_image(url="attachment://image1.png")
+        discembed2 = discord.Embed()
+        discembed2.set_image(url="attachment://image2.png")
+        discembed3 = discord.Embed()
+        discembed3.set_image(url="attachment://image3.png")
+        discembed4 = discord.Embed()
+        discembed4.set_image(url="attachment://image4.png")
+        # post images to discord
+        await channel.send(file=file1, embed=discembed1)
+        await channel.send(file=file2, embed=discembed2)
+        await channel.send(file=file3, embed=discembed3)
+        await channel.send(file=file4, embed=discembed4)
+        
+        return
+    else:
+        await redMessage("Sorry, StableDiffusion isn't running right now.",channel)
+        return
+#function to create and return a prompt for use with stable diffusion or dall e
+async def promptCreation(prompt,channel):
+    resetConvoHistory()
+    prompt_message = await yellowMessage("Generating prompt...",channel)
+    bot_message = await channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
+    try:
+        discordResponse = ask_openai(f"*{prompt}* is the concept.  Now create an 'image prompt' for the concept with a word count limit of 300 words for the AI-based text-to-image program Stable Diffusion using the following parameters: prompt: [1], [2], [3], [4], [5], [6]. In this prompt, [1] should be replaced with the user-supplied concept and [2] should be a concise, descriptive summary of the subject. Ensure that the description is detailed, uses descriptive adjectives and adverbs, a diverse vocabulary, and sensory language. Offer context and background information regarding the subject and consider the image's perspective and point of view. Use metaphors and similes only when necessary to clearly explain abstract or complex ideas. Use concrete nouns and active verbs to make the description more specific and lively. [3] should be a concise summary of the scene's environment. Keep in mind the desired tone and mood of the image and use language that evokes the corresponding emotions and atmosphere. Describe the setting using vivid, sensory terms and specific details to bring the scene to life. [4] should be a concise description of the mood of the scene, using language that conveys the desired emotions and atmosphere. [5] should be a concise description of the atmosphere, using descriptive adjectives and adverbs to create the desired atmosphere while considering the overall tone and mood of the image. [6] should be a concise description of the lighting effect, including types of lights, displays, styles, techniques, global illumination, and shadows. Describe the quality, direction, color, and intensity of the light and how it impacts the mood and atmosphere of the scene. Use specific adjectives and adverbs to portray the desired lighting effect and consider how it will interact with the subject and environment. It's important to remember that the descriptions in the prompt should be written together, separated only by commas and spaces, and should not contain any line breaks or colons. Brackets and their contents should not be included. Ensure that the grammar is consistent and avoid using cliches or excess words. Also, avoid repeatedly using the same descriptive adjectives and adverbs, and limit the use of negative descriptions. Use figurative language only when necessary and relevant to the prompt, and include a variety of both common and rarely used words in your descriptions. The 'image prompt' must not exceed 400 words. Don't label or use bullets etc",history)
+        await bot_message.delete()
+        await prompt_message.delete()
+        return(discordResponse)
+    except Exception as e:
+        print(e)
+        await bot_message.delete()
+        await redMessage('Shoot..Something went wrong or timed out.',channel)
+        return
+
 async def on_ready():
     #change this to the channel id where you want reminders to pop up
-    reminder_channel_id = #put your reminder channel id number here, no quotes
+    reminder_channel_id = 1090120937472540903
     print('Logged in as {0.user}'.format(client))
     print('Setting Date...')
+    await greenMessage("Hey boss, how can I help?",1079243349237698633)
     setDate()
-    
+
 #defs to remind me of things
     async def remind_exercises():
         while True:
             now = datetime.now()  # Get the current datetime
             if now.hour == 17 and now.minute == 00:
                 channel = await client.fetch_channel(reminder_channel_id)
-                botmessage = await channel.send("Make sure to do your physio.\n- wall stretch - 20 total\n- chair pushups - 20 total\n- 15 rows with 10 tricep extensions per arm\n- 20 shrugs\n- corner stretch")
+                exerciseReminderMessage = await channel.send("Make sure to do your physio.\n- wall stretch - 20 total\n- chair pushups - 20 total\n- 15 rows with 10 tricep extensions per arm\n- 20 shrugs\n- corner stretch")
                 await asyncio.sleep(14400) 
-                await botmessage.delete()
+                await exerciseReminderMessage.delete()
             await asyncio.sleep(60)  # Wait for 1 min before checking again
     #start timer loop
     client.loop.create_task(remind_exercises())
@@ -295,7 +412,7 @@ async def on_ready():
                 positiveMessage = ask_openai("It's the morning, please provide me with a positive message to start my day with.",history)                
                 botmessage1 = await channel.send(positiveMessage)
                 resetConvoHistory()
-                searchReply = deepGoogle(f"What is the weather forecast for {location} Canada today?")
+                searchReply = deepGoogle(f"What is the weather forecast for {location} today?")
                 botmessage2 = await channel.send(searchReply)
                 resetConvoHistory()
                 await asyncio.sleep(14500) 
@@ -313,6 +430,7 @@ async def on_ready():
                 channel = await client.fetch_channel(reminder_channel_id)
                 newsRequest = deepGoogle("What is the latest in Cybersecurity news? Summarize with bullet points. Do not limit your search to a single site.")                
                 botmessage1 = await channel.send(newsRequest)
+                await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
                 resetConvoHistory()
                 await asyncio.sleep(14500) 
                 await botmessage1.delete()
@@ -336,58 +454,21 @@ async def on_message(message):
     userName = message.author
     mention = userName.mention
     userMessage = message.content
-
-    #message functions to easily print in color boxes
-    async def blueMessage(messageToSend):
-        discembed = discord.Embed(
-            description=f"{messageToSend}",
-            color=discord.colour.Colour.dark_blue()
-        )
-        bot_message = await message.channel.send(embed=discembed)
-        return bot_message
-    async def yellowMessage(messageToSend):
-        discembed = discord.Embed(
-            description=f"{messageToSend}",
-            color=discord.colour.Colour.yellow()
-        )
-        bot_message = await message.channel.send(embed=discembed)
-        return bot_message
-    async def goldMessage(messageToSend):
-        discembed = discord.Embed(
-            description=f"{messageToSend}",
-            color=discord.colour.Colour.dark_gold()
-        )
-        bot_message = await message.channel.send(embed=discembed)
-        return bot_message
-    async def redMessage(messageToSend):
-        discembed = discord.Embed(
-            description=f"{messageToSend}",
-            color=discord.colour.Colour.red()
-        )
-        bot_message = await message.channel.send(embed=discembed)
-        return bot_message
-    async def greenMessage(messageToSend):
-        discembed = discord.Embed(
-            description=f"{messageToSend}",
-            color=discord.colour.Colour.dark_green()
-        )
-        bot_message = await message.channel.send(embed=discembed)
-        return bot_message
     
     # this is the main loop of the program, continuously loops through this section calling functions as
     # the user specifies
     # ignore messages sent by the bot itself to avoid infinite loops
     if message.author == client.user:
         return
-    # resets conversation history to save money
+    #resets conversation history
     elif '!reset' in message.content or '!thanks' in message.content or '!forget' in message.content:
         member=message.guild.me
         #await member.edit(nick='Wheatley')
         #clear chat history except for starting prompt
         resetConvoHistory()
-        await blueMessage("OK. What's next?")
+        await blueMessage("OK. What's next?",message.channel)
         calculateCost()
-        await goldMessage(costing)
+        await goldMessage(costing,message.channel)
         return
     #searches top 3 google results and returns answer to the question after the !search
     elif '!search' in message.content:
@@ -398,19 +479,19 @@ async def on_message(message):
             bot_message = await message.channel.send("Searching...Please allow up to 50 seconds for a result.\n", file=discord.File('wheatley-3-blue-30sec.gif') )
             searchReply = deepGoogle(message.content[7:])
             await bot_message.delete()
-            await yellowMessage(f"Searched for: {cleanedBotSearchGen}")
-            await blueMessage(f"{searchReply}")
+            await yellowMessage(f"Searched for: {cleanedBotSearchGen}",message.channel)
+            await blueMessage(f"{searchReply}",message.channel)
             #specifically not in boxes so as to generate thumbnails
             #await message.channel.send(f"{url1} \n{url2} \n{url3}")
             #removing thumbnails for cleaner interface
-            await yellowMessage(f"{url1} \n{url2} \n{url3}")
+            await yellowMessage(f"{url1} \n{url2} \n{url3}",message.channel)
             calculateCost()
-            await goldMessage(costing)
+            await goldMessage(costing,message.channel)
             return
         except Exception as e:
             print(e)
             await bot_message.delete()
-            await redMessage('Shoot..Something went wrong or timed out.')
+            await redMessage('Shoot..Something went wrong or timed out.',message.channel)
             return
     # summarize the provided url
     elif '!summarize' in message.content:
@@ -419,14 +500,14 @@ async def on_message(message):
         try:
             searchReply = summarize(message.content[10:])
             await bot_message.delete()
-            await blueMessage(f"{searchReply}")
+            await blueMessage(f"{searchReply}",message.channel)
             calculateCost()
-            await goldMessage(costing)
+            await goldMessage(costing,message.channel)
             return
         except Exception as e:
             print(e)
             await bot_message.delete()
-            await redMessage('Shoot..Something went wrong or timed out.')
+            await redMessage('Shoot..Something went wrong or timed out.',message.channel)
             return
     
     #dall e image prompt, 2cents per pic
@@ -441,79 +522,28 @@ async def on_message(message):
         await message.channel.send(embed=discembed)
         imgGenNum += 1
         calculateCost()
-        await goldMessage(costing)
+        await goldMessage(costing,message.channel)
+        return
+    # create an image generation prompt out of whatever you write, to then be used with dall e or stable diffusion or whatever
+    elif '!prompt' in message.content:
+        channel = message.channel
+        discordResponse = await promptCreation(message.content[7:],channel)
+        await blueMessage(discordResponse,channel)
+        calculateCost()
+        await goldMessage(costing,channel)
         return
     # image creation from your own local stable diffusion box, you need to have set that up first
     elif '!imagine' in message.content:
         #working from here https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API
         #also http://127.0.0.1:7860/docs
-        #stabilityDiffusion(prompt,batch)
-        if is_port_listening("192.168.64.123","7860") == True:
-            bot_message = await message.channel.send(f"Generating 4 768x768 Stable Diffusion Images...\n", file=discord.File('wheatley-3-blue-30sec.gif'))
-                    
-            payload = {
-                "prompt": message.content[9:],
-                "steps": 37,
-                "width": 768,
-                "height": 768,
-                "batch_size": 4,
-                "sampler_name": "DPM++ 2M Karras",
-                #"enable_hr": True,
-                #"hr_scale": 2,
-                #"denoising_strength": 0
-            }
-
-            # Call stablediffusion API
-            imageResponse = requests.post(url=f'http://192.168.64.123:7860/sdapi/v1/txt2img', json=payload)
-
-            r = imageResponse.json()
-
-            # Delete loading bar
-            await bot_message.delete()
-
-            # Counter for image numbers
-            image_number = 0
-
-            # Decode the images and put each into a 'PIL/Image' object
-            for i in r['images']:
-                image = Image.open(io.BytesIO(base64.b64decode(i.split(",", 1)[0])))
-
-                # Save the image to file
-                fileName = f"SDimages/output-{randomNum}-{image_number}.png"
-               
-                png_payload = {
-                    "image": "data:image/png;base64," + i
-                }
-                response2 = requests.post(url=f'http://192.168.64.123:7860/sdapi/v1/png-info', json=png_payload)
-                #print(response2)
-                pnginfo = PngImagePlugin.PngInfo()
-                pnginfo.add_text("parameters", response2.json().get("info"))
-                image.save(fileName, pnginfo=pnginfo)
-                image_number += 1
-
-            # Load the images and output them
-            file1 = discord.File(f"SDimages/output-{randomNum}-0.png", filename='image1.png')
-            file2 = discord.File(f"SDimages/output-{randomNum}-1.png", filename='image2.png')
-            file3 = discord.File(f"SDimages/output-{randomNum}-2.png", filename='image3.png')
-            file4 = discord.File(f"SDimages/output-{randomNum}-3.png", filename='image4.png')
-            discembed1 = discord.Embed()
-            discembed1.set_image(url="attachment://image1.png")
-            discembed2 = discord.Embed()
-            discembed2.set_image(url="attachment://image2.png")
-            discembed3 = discord.Embed()
-            discembed3.set_image(url="attachment://image3.png")
-            discembed4 = discord.Embed()
-            discembed4.set_image(url="attachment://image4.png")
-            # post images to discord
-            await message.channel.send(file=file1, embed=discembed1)
-            await message.channel.send(file=file2, embed=discembed2)
-            await message.channel.send(file=file3, embed=discembed3)
-            await message.channel.send(file=file4, embed=discembed4)
-                       
-            return
-        else:
-            await redMessage("Sorry, StableDiffusion isn't running right now.")
-            return
+        channel = message.channel
+        await stabilityDiffusion(message.content[9:],channel)
+        return
+    elif '!superimagine' in message.content:
+        channel = message.channel
+        promptForImagine = await promptCreation(message.content[14:],channel)
+        await stabilityDiffusion(promptForImagine,channel)
+        return
     #bot ignores what's entered completly
     elif '!ignore' in message.content or '!vega' in message.content:
         print("Ignoring input.")
@@ -525,31 +555,16 @@ async def on_message(message):
         await member.edit(nick='Snake')
         identity = snake
         resetConvoHistory()
-        await yellowMessage("\U0001F40D Snake, at your service. Ask me your Python questions, I'm ready. \U0001F40D")
+        await yellowMessage("\U0001F40D Snake, at your service. Ask me your Python questions, I'm ready. \U0001F40D",message.channel)
         return
-    # create an image generation prompt out of whatever you write, to then be used with dall e or stable diffusion or whatever
-    elif '!prompt' in message.content:
-        resetConvoHistory()
-        bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
-        try:
-            discordResponse = ask_openai(f"*{message.content[7:]}* is the concept.  Now create an 'image prompt' for the concept with a word count limit of 300 words for the AI-based text-to-image program Stable Diffusion using the following parameters: prompt: [1], [2], [3], [4], [5], [6]. In this prompt, [1] should be replaced with the user-supplied concept and [2] should be a concise, descriptive summary of the subject. Ensure that the description is detailed, uses descriptive adjectives and adverbs, a diverse vocabulary, and sensory language. Offer context and background information regarding the subject and consider the image's perspective and point of view. Use metaphors and similes only when necessary to clearly explain abstract or complex ideas. Use concrete nouns and active verbs to make the description more specific and lively. [3] should be a concise summary of the scene's environment. Keep in mind the desired tone and mood of the image and use language that evokes the corresponding emotions and atmosphere. Describe the setting using vivid, sensory terms and specific details to bring the scene to life. [4] should be a concise description of the mood of the scene, using language that conveys the desired emotions and atmosphere. [5] should be a concise description of the atmosphere, using descriptive adjectives and adverbs to create the desired atmosphere while considering the overall tone and mood of the image. [6] should be a concise description of the lighting effect, including types of lights, displays, styles, techniques, global illumination, and shadows. Describe the quality, direction, color, and intensity of the light and how it impacts the mood and atmosphere of the scene. Use specific adjectives and adverbs to portray the desired lighting effect and consider how it will interact with the subject and environment. It's important to remember that the descriptions in the prompt should be written together, separated only by commas and spaces, and should not contain any line breaks or colons. Brackets and their contents should not be included. Ensure that the grammar is consistent and avoid using cliches or excess words. Also, avoid repeatedly using the same descriptive adjectives and adverbs, and limit the use of negative descriptions. Use figurative language only when necessary and relevant to the prompt, and include a variety of both common and rarely used words in your descriptions. The 'image prompt' must not exceed 400 words. Don't label or use bullets etc",history)
-            await bot_message.delete()
-            await blueMessage(discordResponse)
-            calculateCost()
-            await goldMessage(costing)
-            return
-        except Exception as e:
-            print(e)
-            await bot_message.delete()
-            await redMessage('Shoot..Something went wrong or timed out.')
-            return
+    
     # invoke default identity
     elif '!wheatley' in message.content:
         member=message.guild.me
         await member.edit(nick='Wheatley')
         identity = wheatley
         resetConvoHistory()
-        await yellowMessage("\U0001F916 Hey, Wheatley here. What's up?\U0001F916")
+        await yellowMessage("\U0001F916 Hey, Wheatley here. What's up?\U0001F916",message.channel)
         return
     # invoke cybersec specialist identity
     elif '!zerocool' in message.content:
@@ -557,7 +572,7 @@ async def on_message(message):
         await member.edit(nick='Zero Cool')
         identity = zerocool
         resetConvoHistory()
-        await yellowMessage("\U0001F575 Zero Cool at your service. Strap on your rollerblades. \U0001F575")
+        await yellowMessage("\U0001F575 Zero Cool at your service. Strap on your rollerblades. \U0001F575",message.channel)
         return
     #process the prompt in an attached txt file and respond in kind
     elif len(message.attachments) == 1:
@@ -574,13 +589,13 @@ async def on_message(message):
             with open(outputFile, "w") as responseFile:
                 responseFile.write(discordResponse)
             await message.channel.send(file=discord.File(outputFile))
-            await blueMessage("Please see my response in the attached file.")
+            await blueMessage("Please see my response in the attached file.",message.channel)
             calculateCost()
-            await goldMessage(costing)
+            await goldMessage(costing,message.channel)
         except Exception as e:
             print(e)
             await bot_message.delete()
-            await redMessage('Shoot..Something went wrong or timed out.')
+            await redMessage('Shoot..Something went wrong or timed out.',message.channel)
         return
     # these local commands are specific to my ubuntu box, may not work for you
     # runs a local speedtest if you have speedtest cli installed, these
@@ -588,16 +603,16 @@ async def on_message(message):
         bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
         speedtest_output = subprocess.check_output(['speedtest'])
         await bot_message.delete()
-        await greenMessage(speedtest_output.decode())
+        await greenMessage(speedtest_output.decode(),message.channel)
         return
     #runs a nmap scan of the network this bot is on, change to your own ip subnet
     elif '!network' in message.content:
         bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
         nmap_output = subprocess.check_output(['nmap', '-sn', '192.168.64.0/24', '|grep'])
         await bot_message.delete()
-        await greenMessage(nmap_output.decode())
+        await greenMessage(nmap_output.decode(),message.channel)
         return
-    # shows cpu load percentage and temps
+    # shows cpu load percentage and temps of the computer this is running on
     elif '!cpu' in message.content:
         cpu_output = subprocess.check_output("mpstat 1 1 | awk '/Average:/ {print 100 - $NF}'", shell=True)
         # CPU temperature
@@ -613,11 +628,13 @@ async def on_message(message):
 
         bot_message = (f"💻Percent total usage: {cpu_output.decode()}\n🌡️ CPU Temperature:\n {cpu_temp1}°C -- {cpu_temp2}°C,\n {cpu_temp3}°C -- {cpu_temp4}°C")
         #\n🎮 GPU Temperature: {gpu_temp} °C"
-        await greenMessage(bot_message)
+        await greenMessage(bot_message,message.channel)
         return
-    #displays all commands
+    # displays all commands
     elif '!help' in message.content:
         await greenMessage(f"""The following functions are currently available:\n
+            Simply send a message and press enter and wait for a response. No need to @ the bot, or start a thread or anything.\n
+            There are many commands as well:
             Personas:\n
             !wheatley - Default persona. Knows all. \n
             !snake - Specializes in Python questions. \n
@@ -639,7 +656,7 @@ async def on_message(message):
             !speedtest - requires speedtestcli be installed first, then runs a speedtest on the computer this bot is on, then returns the results.\n
             !network - scans your home network (requires nmap installed) and reports on IPs of hosts that are up.\n
             !cpu - reports on CPU usage percent, followed by temps. hardcoded to 4 cores as that's all my server has
-            """)
+            """,message.channel)
         return
 
     # this runs if no command is sent and just text is, the bot will respond
@@ -655,13 +672,13 @@ async def on_message(message):
         #debug of the response to terminal
         print(f"Bot just said: {discordResponse}")
         # send the response back to Discord
-        await blueMessage(discordResponse)
+        await blueMessage(discordResponse,message.channel)
         calculateCost()
-        await goldMessage(costing)
+        await goldMessage(costing,message.channel)
     except Exception as e:
         print(e)
         await bot_message.delete()
-        await redMessage('Shoot..Something went wrong or timed out.')
+        await redMessage('Shoot..Something went wrong or timed out.',message.channel)
 
 client.run(discordBotToken)
 #---/DISCORD SECTION---#
