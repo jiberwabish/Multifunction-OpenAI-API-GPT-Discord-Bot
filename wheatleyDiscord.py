@@ -1,6 +1,6 @@
 # host on your own computer and private server and connect to your Discord bot with your Token
 # fill in your own keys etc just below the imports
-# Stavros 2023
+# jiberwabish 2023
 
 #so many libraries to import
 import openai
