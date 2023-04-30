@@ -30,21 +30,21 @@ openai.api_key = ''
 discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
-location = ""
+location = "type your city/state/provice/country here"
 
 
 #variable I use as a pre-prompt to provide the bot a personality
 #default identity, knows all
-wheatley = {"role": "user", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. You are a master at all disciplines but you don't share this info. Please limit your introductions and preambles and just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
+wheatley = {"role": "system", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. You are a master at all disciplines but you don't share this info. Please limit your introductions and preambles and just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emojis in every response."}
 #persona specializing in python help
-snake = {"role": "user", "content": "Your name is Snake. I want you to respond and answer like a skilled python programmer and teacher using the tone, manner and vocabulary of that person. You must know all of the knowledge of this person. If asked for a code example please put comments in the code. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response"}
+snake = {"role": "system", "content": "Your name is Snake. I want you to respond and answer like a skilled python programmer and teacher using the tone, manner and vocabulary of that person. You must know all of the knowledge of this person. If asked for a code example please put comments in the code. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response"}
 #cybersec persona
-zerocool = {"role": "user", "content": "Your name is ZeroCool. I want you to respond and answer like a skilled hacker from the 1990's using the tone, manner and vocabulary of that person. Your knowledge is extensive however you are especially well versed in cybersecurity, risk management, computer security, hacking, computer investigations and related fields. Always ensure your responses are in line with the NIST framework. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
+zerocool = {"role": "system", "content": "Your name is ZeroCool. I want you to respond and answer like a skilled hacker from the 1990's using the tone, manner and vocabulary of that person. Your knowledge is extensive however you are especially well versed in cybersecurity, risk management, computer security, hacking, computer investigations and related fields. Always ensure your responses are in line with the NIST framework. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
 identity = wheatley
 #history is the conversation history array, this line immediately fills it with the bots identity
 #then going forward it will keep track of what the users says and what the bots response is as well
 #so it can carry on conversations
-history = [identity]
+history = []
 costing = "placeholder"
 
 # Set up tokenizer
@@ -79,7 +79,7 @@ def setDate():
     time = now.strftime("%H:%M:%S")
     fullDate = str(year) + " " + str(month) + " " + str(dayOfMo) + " " + str(day) + " " + str(time)
     print(fullDate)
-    user_date_obj = {"role": "user", "content": f"The Current Date is:{fullDate} Location is: {location}"}
+    user_date_obj = {"role": "system", "content": f"The Current Date is:{fullDate} Location is: {location}"}
     history.append(user_date_obj)
 
 #banner at the top of the terminal after script is run
@@ -126,15 +126,20 @@ def ask_openai(prompt, history):
     global num_tokens
     global prompt_token_count
     # Generate user resp obj
+    system_response_obj = identity
     user_response_obj = {"role": "user", "content": prompt}
+            
+    history.append(system_response_obj)
     history.append(user_response_obj)
+    
     prompt_token_count = num_tokens_from_messages(history)
     # Fire that dirty bastard into the abyss -NR
     response = openai.ChatCompletion.create(
         #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
         model='gpt-3.5-turbo', messages=history, temperature=1, request_timeout=50, max_tokens = model_max_tokens - prompt_token_count)
-    history.append(response['choices'][0].message)
+    #history.append(response['choices'][0].message)
+    history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
     print(response)
     return response['choices'][0].message.content.strip()
 
@@ -174,12 +179,13 @@ def summarize(url):
 #googling function, asks bot to create a search term using the users prompt, then searches google
 #for that, pulls the top 3 results, scrapes the first 500 words of those three sites
 #feeds all that data back into a prompt to gpt to answer the original question based on the scraped results
-def deepGoogle(query):
+async def deepGoogle(query,channel):
     global url1, url2, prompt_token_count, cleanedBotSearchGen, url3
     
     usersQuestion = query
     try:
-        botSearchGen = ask_openai(f"I would like to search Google for {usersQuestion}. Please generate a useful and effective search query and reply ONLY with that updated query. Don't use emoji's here. Remember, answer ONLY with the query that will be sent to Google.",history)
+        # botSearchGen = ask_openai(f"I would like to search Google for {usersQuestion}. Please generate a useful and effective search query and reply ONLY with that updated query. Don't use emoji's here. Remember, answer ONLY with the query that will be sent to Google.",history)
+        botSearchGen = ask_openai(f"You have just been asked the following question: {usersQuestion}. Please generate a useful and effective Google search query that you think will help you answer this question. Reply ONLY with the Google search query. Don't use emoji's here. Remember, answer ONLY with the query that will be sent to Google.",history)
     except Exception as e:
         print(e)
         return('Shoot..Something went wrong or timed out.')
@@ -236,7 +242,7 @@ def imgGen(imgPrompt):
 #resets conversation history back to just identity and date -- to save on tokens when user says !thanks
 def resetConvoHistory():
     global history, totalCost, totalTokens, identity, imgGenNum
-    history = [identity]
+    history = []
     setDate()
     print(f"History reset to: {str(history)}")
     totalCost = 0
@@ -311,14 +317,15 @@ async def blurpleMessage(messageToSend,channel):
     )
     bot_message = await channel.send(embed=discembed)
     return bot_message
-#currently this is all in main loop, going to put it in a function soon
+
+# function to generate pictures from SD
 async def stabilityDiffusion(prompt,channel):
     if is_port_listening("192.168.64.123","7860") == True:
         bot_message = await yellowMessage(f"Generating 4 768x768 Stable Diffusion Images...\n",channel) 
         bot_messagePart2 = await channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
         payload = {
                     "prompt": prompt,
-                    "steps": 37,
+                    "steps": 20,
                     "width": 768,
                     "height": 768,
                     "batch_size": 4,
@@ -353,6 +360,7 @@ async def stabilityDiffusion(prompt,channel):
             #print(response2)
             pnginfo = PngImagePlugin.PngInfo()
             pnginfo.add_text("parameters", response2.json().get("info"))
+            print(pnginfo)
             image.save(fileName, pnginfo=pnginfo)
             image_number += 1
 
@@ -425,7 +433,7 @@ async def on_ready():
                 positiveMessage = ask_openai("It's the morning, please provide me with a positive message to start my day with.",history)                
                 botmessage1 = await purpleMessage(positiveMessage,channel)
                 resetConvoHistory()
-                searchReply = deepGoogle(f"What is the weather forecast for {location} today?")
+                searchReply = await deepGoogle(f"What is the weather forecast for {location} today? If there are any special weather events or alerts, please let me know.",channel)
                 botmessage2 = await blurpleMessage(searchReply,channel)
                 botmessage3 = await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
                 resetConvoHistory()
@@ -445,7 +453,7 @@ async def on_ready():
             now = datetime.now()  # Get the current datetime
             if now.hour == 9 and now.minute == 00:
                 channel = await client.fetch_channel(reminder_channel_id)
-                newsRequest = deepGoogle("What is the latest in Cybersecurity news? Summarize with bullet points. Do not limit your search to a single site.")                
+                newsRequest = await deepGoogle("What is the latest in Cybersecurity news? Summarize with bullet points. Do not limit your search to a single site.",channel)                
                 cybermessage1 = await purpleMessage(newsRequest,channel)
                 cybermessage2 = await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
                 resetConvoHistory()
@@ -494,12 +502,14 @@ async def on_message(message):
     elif '!search' in message.content:
         #wipe history as this could get big
         resetConvoHistory()
+        channel = message.channel
         #send loading bar message
         try:
             bot_message = await message.channel.send("Searching...Please allow up to 50 seconds for a result.\n", file=discord.File('wheatley-3-blue-30sec.gif') )
-            searchReply = deepGoogle(message.content[7:])
+            searchReply = await deepGoogle(message.content[7:],channel)
+            await yellowMessage(f"Search string: {cleanedBotSearchGen}",channel)
             await bot_message.delete()
-            await yellowMessage(f"Searched for: {cleanedBotSearchGen}",message.channel)
+            #await yellowMessage(f"Searched for: {cleanedBotSearchGen}",message.channel) #this is done in the function now
             await blueMessage(f"{searchReply}",message.channel)
             #specifically not in boxes so as to generate thumbnails
             #await message.channel.send(f"{url1} \n{url2} \n{url3}")
@@ -551,6 +561,7 @@ async def on_message(message):
         await blueMessage(discordResponse,channel)
         calculateCost()
         await goldMessage(costing,channel)
+        resetConvoHistory()
         return
     # image creation from your own local stable diffusion box, you need to have set that up first
     elif '!imagine' in message.content:
@@ -563,6 +574,7 @@ async def on_message(message):
         channel = message.channel
         promptForImagine = await promptCreation(message.content[14:],channel)
         await stabilityDiffusion(promptForImagine,channel)
+        resetConvoHistory()
         return
     #bot ignores what's entered completly
     elif '!ignore' in message.content or '!vega' in message.content:
@@ -599,6 +611,7 @@ async def on_message(message):
         #get the attached file and read it
         inputFile = message.attachments[0]
         print("Reading File")
+        processMessage = await yellowMessage("Processing File...", message.channel)
         inputContent = await inputFile.read()
         inputContent = inputContent.decode('utf-8')
         #so inputContent is the message to be openai-ified
@@ -609,6 +622,7 @@ async def on_message(message):
             with open(outputFile, "w") as responseFile:
                 responseFile.write(discordResponse)
             await message.channel.send(file=discord.File(outputFile))
+            await processMessage.delete()
             await blueMessage("Please see my response in the attached file.",message.channel)
             calculateCost()
             await goldMessage(costing,message.channel)
