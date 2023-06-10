@@ -1,5 +1,6 @@
 # host on your own computer and private server and connect to your Discord bot with your Token
 # fill in your own keys etc just below the imports
+# if you have a stable diffusion install running, change IP info in the stablediffusion functions and create a folder where your bot runs with the same name as described in the function for images to be stored there
 # jiberwabish 2023
 
 #so many libraries to import
@@ -11,7 +12,7 @@ import time
 import emoji
 import discord
 from discord.ext import commands
-from discord import Game, Activity, ActivityType
+from discord import Game, Activity, ActivityType, app_commands
 import asyncio
 from bs4 import BeautifulSoup
 from googleapiclient.discovery import build
@@ -20,26 +21,30 @@ from datetime import datetime
 import logging
 import base64
 from PIL import Image, PngImagePlugin
+from io import BytesIO
 import io
 import random
 import socket
 import subprocess
+import sseclient
+from better_profanity import profanity
 
 #set api keys and other variabls
 openai.api_key = ''
 discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
-location = "type your city/state/provice/country here"
+location = "enter your city province/state country here"
 
 
 #variable I use as a pre-prompt to provide the bot a personality
 #default identity, knows all
-wheatley = {"role": "system", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. You are a master at all disciplines but you don't share this info. Please limit your introductions and preambles and just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emojis in every response."}
+wheatley = {"role": "system", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. YOU are a master at all disciplines but you don't share this info. DO NOT include introductions and/or preambles to your answers, just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emojis in every response."}
 #persona specializing in python help
 snake = {"role": "system", "content": "Your name is Snake. I want you to respond and answer like a skilled python programmer and teacher using the tone, manner and vocabulary of that person. You must know all of the knowledge of this person. If asked for a code example please put comments in the code. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response"}
+ringo = {"role": "system", "content": "Your name is Ringo. You are very positive and happy and helpful to me, Cathy.  You are a master at all disciplines so can help with any question. I want you to respond and answer like Martin Short would, using the tone, manner and vocabulary they would use. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emojis in every response."}
 #cybersec persona
-zerocool = {"role": "system", "content": "Your name is ZeroCool. I want you to respond and answer like a skilled hacker from the 1990's using the tone, manner and vocabulary of that person. Your knowledge is extensive however you are especially well versed in cybersecurity, risk management, computer security, hacking, computer investigations and related fields. Always ensure your responses are in line with the NIST framework. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
+zerocool = {"role": "system", "content": "Your name is ZeroCool. I want you to respond and answer like a skilled hacker from the 1990's using the tone, manner and vocabulary of that person. Your knowledge is extensive and is not limited to the 1990's at all. You are especially well versed in cybersecurity, risk management, computer security, hacking, computer investigations and related fields. Always ensure your responses are in line with the NIST framework. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
 identity = wheatley
 #history is the conversation history array, this line immediately fills it with the bots identity
 #then going forward it will keep track of what the users says and what the bots response is as well
@@ -57,10 +62,12 @@ prompt_token_count = 0
 fullDate =""
 imgGenNum = 0
 cleanedBotSearchGen = ""
+img2imgPrompt = "van gogh art style"
 #setup !search variables
 url1 = ""
 url2 = ""
 url3 = ""
+
 #!file variable
 inputContent = ""
 outputFile = "outputFile.txt"
@@ -137,11 +144,53 @@ def ask_openai(prompt, history):
     response = openai.ChatCompletion.create(
         #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
-        model='gpt-3.5-turbo', messages=history, temperature=1, request_timeout=50, max_tokens = model_max_tokens - prompt_token_count)
+        model='gpt-3.5-turbo', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
     #history.append(response['choices'][0].message)
     history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
     print(response)
     return response['choices'][0].message.content.strip()
+
+async def stream_openai(prompt, history, channel):
+    global num_tokens
+    global prompt_token_count
+    fullMessage = ""
+    collected_messages = []
+    # Generate user resp obj
+    system_response_obj = identity
+    user_response_obj = {"role": "user", "content": prompt}
+            
+    history.append(system_response_obj)
+    history.append(user_response_obj)
+    
+    prompt_token_count = num_tokens_from_messages(history)
+
+    streamedMessage = await channel.send("🤔")
+    # Fire that dirty bastard into the abyss -NR
+    response = openai.ChatCompletion.create(
+        #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
+        model='gpt-3.5-turbo', messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+    #history.append(response['choices'][0].message)
+
+    collected_messages = []
+    counter = 0
+    for chunk in response:
+        chunk_message = chunk['choices'][0]['delta']
+        if 'content' in chunk_message:
+            content = chunk_message['content']
+            collected_messages.append(content)
+            full_reply_content = ''.join(collected_messages)
+            fullMessage = full_reply_content
+            counter += 1
+            if counter % 10 == 0:
+                await streamedMessage.edit(content=full_reply_content)
+                #print(full_reply_content)
+    await streamedMessage.edit(content=fullMessage)
+  
+    #full_reply_content = ''.join([m.get('content', '') for m in collected_messages])
+    #print(full_reply_content)
+    history.append({"role": "assistant", "content": fullMessage})
+    return fullMessage
 
 #function used for scraping websites, used with the !search command
 def get_first_500_words(url, numWords):
@@ -167,14 +216,14 @@ def get_first_500_words(url, numWords):
         return (f"Sorry, scraping {url} errored out.")
 
 #summarize a single url
-def summarize(url):
+async def summarize(url,channel):
     scrapedSummaryUrl = get_first_500_words(url,2000)
     try:
-        summarizedArticle = ask_openai(f"Please summarize the following information into bullet points. Highlight the most important information at the end. Article: {scrapedSummaryUrl}",history)
+        await stream_openai(f"Please summarize the following information into bullet points ```{scrapedSummaryUrl}```. Include a TL;DR section at the top, a summary in the middle, then highlight the most important information at the end.",history,channel)
     except Exception as e:
         print(e)
         return('Shoot..Something went wrong or timed out.')
-    return summarizedArticle
+    return
 
 #googling function, asks bot to create a search term using the users prompt, then searches google
 #for that, pulls the top 3 results, scrapes the first 500 words of those three sites
@@ -193,6 +242,7 @@ async def deepGoogle(query,channel):
     service = build("customsearch", "v1", developerKey=googleApiKey)
     cleanedBotSearchGen=botSearchGen.strip('"')
     print(f"Searching for {cleanedBotSearchGen}")
+    await yellowMessage(f"Search string: {cleanedBotSearchGen}",channel)
     result = service.cse().list(
         q=cleanedBotSearchGen,
         cx=googleEngineID
@@ -224,7 +274,7 @@ async def deepGoogle(query,channel):
     print(f"{url1} \n{url2} \n{url3}") 
     #print(searchReply)
     try:
-        botReply = ask_openai(f"You just performed a Google Search and possibly have some background on the topic of my question.  Answer my question based on that background if possible. If the answer isn't in the search results, try to field it yourself but mention the search was unproductive. DO use emojis. My question: {query}",history)
+        botReply = await stream_openai(f"You just performed a Google Search and possibly have some background on the topic of my question.  Answer my question based on that background if possible. If the answer isn't in the search results, try to field it yourself but mention the search was unproductive. DO use emojis. My question: {query}",history, channel)
         return(botReply)
     except Exception as e:
         print(e)
@@ -265,7 +315,6 @@ def is_port_listening(ip_address, port):
 intents = discord.Intents.all()
 intents.members = True
 client = discord.Client(intents=intents)
-bot = commands.Bot(command_prefix='/', intents=intents)
 
 #message functions to easily print in color boxes
 async def blueMessage(messageToSend,channel):
@@ -318,21 +367,24 @@ async def blurpleMessage(messageToSend,channel):
     bot_message = await channel.send(embed=discembed)
     return bot_message
 
-# function to generate pictures from SD
+# function to generate 4 pictures from SD
 async def stabilityDiffusion(prompt,channel):
     if is_port_listening("192.168.64.123","7860") == True:
         bot_message = await yellowMessage(f"Generating 4 768x768 Stable Diffusion Images...\n",channel) 
         bot_messagePart2 = await channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
         payload = {
+                    # "enable_hr": True,
+                    # "denoising_strength": 1,
+                    # "hr_scale": 2,
+                    # "hr_upscaler": "4x-UltraSharp",
                     "prompt": prompt,
-                    "steps": 20,
+                    "negative_prompt": "nfilter, nrealfilter, nartfilter, (deformed, distorted, disfigured:1.3), text, logo, poorly drawn, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, (mutated hands and fingers:1.4), disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, tattoo, asian",
+                    "steps": 27,
                     "width": 768,
                     "height": 768,
                     "batch_size": 4,
                     "sampler_name": "DPM++ 2M Karras",
-                    # "enable_hr": True,
-                    # "hr_scale": 4,
-                    # "denoising_strength": 1
+                    #"restore_faces": True
                 }
 
         # Call stablediffusion API
@@ -388,6 +440,149 @@ async def stabilityDiffusion(prompt,channel):
     else:
         await redMessage("Sorry, StableDiffusion isn't running right now.",channel)
         return
+
+async def stabilityDiffusion1pic(prompt, channel):
+    if is_port_listening("192.168.64.123", "7860") == True:
+        bot_message = await yellowMessage(f"Generating 1 512x512 Stable Diffusion Image...\n", channel)
+        bot_messagePart2 = await channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
+        payload = {
+            # "enable_hr": True,
+            # "denoising_strength": 1,
+            # "hr_scale": 4,
+            # "hr_upscaler": "4x-UltraSharp",
+            "prompt": prompt,
+            "negative_prompt": "nfilter, nrealfilter, nartfilter, (deformed, distorted, disfigured:1.3), text, logo, poorly drawn, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, (mutated hands and fingers:1.4), disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, tattoo, asian",
+            "steps": 27,
+            "width": 512,
+            "height": 512,
+            "batch_size": 1,
+            "sampler_name": "DPM++ 2M Karras",
+            #"restore_faces": True
+        }
+
+        # Call stablediffusion API
+        imageResponse = requests.post(url=f'http://192.168.64.123:7860/sdapi/v1/txt2img', json=payload)
+
+        # Delete loading bar
+        await bot_message.delete()
+        await bot_messagePart2.delete()
+
+        r = imageResponse.json()
+
+        # Decode the image and put it into a 'PIL/Image' object
+        image_data = r['images'][0]
+        image = Image.open(io.BytesIO(base64.b64decode(image_data.split(",", 1)[0])))
+
+        # Save the image to file
+        fileName = f"SDimages/output-{randomNum}-0.png"
+
+        png_payload = {
+            "image": "data:image/png;base64," + image_data
+        }
+        response2 = requests.post(url=f'http://192.168.64.123:7860/sdapi/v1/png-info', json=png_payload)
+
+        pnginfo = PngImagePlugin.PngInfo()
+        pnginfo.add_text("parameters", response2.json().get("info"))
+        image.save(fileName, pnginfo=pnginfo)
+
+        # Load the image and output it
+        file1 = discord.File(f"SDimages/output-{randomNum}-0.png", filename='image1.png')
+
+        discembed1 = discord.Embed()
+        discembed1.set_image(url="attachment://image1.png")
+
+        # Post the image to discord
+        bot_pic = await channel.send(file=file1, embed=discembed1)
+        await asyncio.sleep(14510)
+        await bot_pic.delete()
+        return
+    else:
+        await redMessage("Sorry, StableDiffusion isn't running right now.", channel)
+        return
+
+async def img2img(prompt, channel, pic):
+    if is_port_listening("192.168.64.123", "7860") == True:
+        bot_message = await yellowMessage(f"Generating '{img2imgPrompt}' img2img 768x768 Stable Diffusion Image...\n", channel)
+        bot_messagePart2 = await channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
+        payload = {
+            # "enable_hr": True,
+            # "denoising_strength": 1,
+            # "hr_scale": 4,
+            # "hr_upscaler": "4x-UltraSharp",
+            "init_images": [pic],
+            "resize mode": 0.1,
+            "prompt": prompt,
+            "steps": 27,
+            "denoising_strength": 0.05,
+            "img_cfg_scale": 1.5,
+            "cfg_scale": 20,
+            "negative_prompt": "nfilter, nrealfilter, nartfilter, (deformed, distorted, disfigured:1.3), text, logo, poorly drawn, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, (mutated hands and fingers:1.4), disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, tattoo, asian",
+            "width": 768,
+            "height": 768,
+            "batch_size": 1,
+            "sampler_name": "DPM++ 2M Karras",
+            #"restore_faces": True
+        }
+        #print(f"Payload for Stablediffusion API: {payload}")
+
+
+        # Call stablediffusion API
+        imageResponse = requests.post(url=f'http://192.168.64.123:7860/sdapi/v1/img2img', json=payload)
+
+        r = imageResponse.json()
+
+        # Delete loading bar
+        await bot_message.delete()
+        await bot_messagePart2.delete()
+        """
+        if imageResponse.status_code == 200:
+            r = imageResponse.json()
+            await redMessage(f"Stablediffusion API: Response JSON: {r}",channel)
+        else:
+            await redMessage(f"StableDiffusion API returned an error: {imageResponse.status_code}", channel)
+            return
+        
+        if 'images' in r:
+            image_data = r['images'][0]
+        else:
+            await redMessage(f"StableDiffusion API is missing 'images' in response: {r}", channel)
+            return
+        """
+            
+        # Decode the image and put it into a 'PIL/Image' object
+        image_data = r['images'][0]
+        #old  image = Image.open(io.BytesIO(base64.b64decode(image_data.split(",", 1)[0])))
+        #new
+        image = Image.open(io.BytesIO(base64.b64decode(image_data.split(",", 1)[0])))
+
+        
+        # Save the image to file
+        fileName = f"SDimages/output-{randomNum}-0.png"
+
+        png_payload = {
+            "image": "data:image/png;base64," + image_data
+        }
+        response2 = requests.post(url=f'http://192.168.64.123:7860/sdapi/v1/png-info', json=png_payload)
+
+        pnginfo = PngImagePlugin.PngInfo()
+        pnginfo.add_text("parameters", response2.json().get("info"))
+        image.save(fileName, pnginfo=pnginfo)
+
+        # Load the image and output it
+        file1 = discord.File(f"SDimages/output-{randomNum}-0.png", filename='image1.png')
+
+        discembed1 = discord.Embed()
+        discembed1.set_image(url="attachment://image1.png")
+
+        # Post the image to discord
+        await channel.send(file=file1, embed=discembed1)
+        
+        return
+    else:
+        await redMessage("Sorry, StableDiffusion isn't running right now.", channel)
+        return
+
+
 #function to create and return a prompt for use with stable diffusion or dall e
 async def promptCreation(prompt,channel):
     resetConvoHistory()
@@ -412,13 +607,13 @@ async def on_ready():
     print('Setting Date...')
     setDate()
 
-#defs to remind me of things
+    #defs to remind me of things
     async def remind_exercises():
         while True:
             now = datetime.now()  # Get the current datetime
-            if now.hour == 17 and now.minute == 00:
+            if now.hour == 19 and now.minute == 00:
                 channel = await client.fetch_channel(reminder_channel_id)
-                exerciseReminderMessage = await purpleMessage("Make sure to do your physio.\n- wall stretch - 20 total\n- chair pushups - 20 total\n- 15 rows with 10 tricep extensions per arm\n- 20 shrugs\n- corner stretch",channel)
+                exerciseReminderMessage = await purpleMessage("🏋️‍♀️ It is imperative that you perform the following exercises as part of your physio regimen:\n- 🧱 Wall stretch: 20 reps in total\n- 🪑 Chair push-ups: 20 reps in total\n- 💪 15 rows with 10 tricep extensions per arm\n- 🙆‍♂️ 20 shrugs\n- 🔙 Corner stretch",channel)
                 await asyncio.sleep(14400) 
                 await exerciseReminderMessage.delete()
             await asyncio.sleep(60)  # Wait for 1 min before checking again
@@ -428,22 +623,21 @@ async def on_ready():
     async def daily_weather():
         while True:
             now = datetime.now()  # Get the current datetime
-            if now.hour == 7 and now.minute == 45:
+            if now.hour == 7 and now.minute == 00:
                 channel = await client.fetch_channel(reminder_channel_id)
-                positiveMessage = ask_openai("It's the morning, please provide me with a positive message to start my day with.",history)                
-                botmessage1 = await purpleMessage(positiveMessage,channel)
                 resetConvoHistory()
-                searchReply = await deepGoogle(f"What is the weather forecast for {location} today? If there are any special weather events or alerts, please let me know.",channel)
-                botmessage2 = await blurpleMessage(searchReply,channel)
-                botmessage3 = await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
+                positiveMessage = ask_openai("It's the morning, please provide me with a VERY brief, positive message to start my day with.",history)                
+                await purpleMessage(positiveMessage,channel)
                 resetConvoHistory()
-                #weatherPrompt = await promptCreation(searchReply,reminder_channel_id)
-                #await stabilityDiffusion(weatherPrompt,reminder_channel_id)
-                await asyncio.sleep(14500) 
-                await botmessage1.delete()
-                await asyncio.sleep(60)
-                await botmessage2.delete()
-                await botmessage3.delete()    
+                #searchReply = await deepGoogle(f"What is the weather forecast for {location} today? VERY BRIEFLY note the current temp, the high and low for the day, and if there are any alerts, please mention them.",channel)
+                await deepGoogle(f"In point form style VERY BRIEFLY note the current temperature, the high and low for the day, and if there are any alerts for {location}, please mention them. Like this: ```Current Temp: [current temp here in celsius] [new line] High/Low: [they day's highest and lowest temperature here] [new line] Probability of Rain: [the probability of rain here] [new line] UV Rating: [the highest uv rating] [new line][then just comment briefly on the weather here]```",channel)
+                #print weather and urls to the screen
+                await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
+                #print a pic depicting the weather
+                weatherPicPrompt = ask_openai("You just told me the weather, now describe an outdoor scene depicting that weather. Reply with ONLY the description and nothing more",history)
+                print(weatherPicPrompt)
+                await stabilityDiffusion1pic(weatherPicPrompt,channel)
+                resetConvoHistory()                                   
             await asyncio.sleep(60)  # Wait for 1 min before checking again
     #start timer loop
     client.loop.create_task(daily_weather())
@@ -452,16 +646,12 @@ async def on_ready():
         while True:
             now = datetime.now()  # Get the current datetime
             if now.hour == 9 and now.minute == 00:
-                channel = await client.fetch_channel(reminder_channel_id)
-                newsRequest = await deepGoogle("What is the latest in Cybersecurity news? Summarize with bullet points. Do not limit your search to a single site.",channel)                
-                cybermessage1 = await purpleMessage(newsRequest,channel)
-                cybermessage2 = await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
                 resetConvoHistory()
-                await asyncio.sleep(14500)
-                await cybermessage1.delete()
-                await asyncio.sleep(60)
-                await cybermessage2.delete() 
-                
+                channel = await client.fetch_channel(reminder_channel_id)
+                await deepGoogle("What is the latest in Cybersecurity news? Summarize each news item with a bullet point each. Do not limit your search to a single site.",channel)                
+                #cybermessage1 = await purpleMessage(newsRequest,channel)
+                await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
+                resetConvoHistory()              
             await asyncio.sleep(60)  # Wait for 1 min before checking again
     #start timer loop
     client.loop.create_task(cyberNews())
@@ -477,12 +667,13 @@ async def on_message(message):
     global inputContent
     global outputFile
     global image
+    global img2imgPrompt
 
     #set name (and soon to be picture) to Wheatley by default
     userName = message.author
     mention = userName.mention
     userMessage = message.content
-    
+
     # this is the main loop of the program, continuously loops through this section calling functions as
     # the user specifies
     # ignore messages sent by the bot itself to avoid infinite loops
@@ -505,12 +696,9 @@ async def on_message(message):
         channel = message.channel
         #send loading bar message
         try:
-            bot_message = await message.channel.send("Searching...Please allow up to 50 seconds for a result.\n", file=discord.File('wheatley-3-blue-30sec.gif') )
-            searchReply = await deepGoogle(message.content[7:],channel)
-            await yellowMessage(f"Search string: {cleanedBotSearchGen}",channel)
-            await bot_message.delete()
+            await deepGoogle(message.content[7:],channel)
             #await yellowMessage(f"Searched for: {cleanedBotSearchGen}",message.channel) #this is done in the function now
-            await blueMessage(f"{searchReply}",message.channel)
+            #await blueMessage(f"{searchReply}",message.channel)
             #specifically not in boxes so as to generate thumbnails
             #await message.channel.send(f"{url1} \n{url2} \n{url3}")
             #removing thumbnails for cleaner interface
@@ -523,14 +711,23 @@ async def on_message(message):
             await bot_message.delete()
             await redMessage('Shoot..Something went wrong or timed out.',message.channel)
             return
+    elif '!autosearch' in message.content:
+        searchOrNot = ask_openai(f"You were just asked ```{message.content}```. If you are 75% confident answering this question on your current knowledgebase, reply with only the letter 'y'. If you think it would help if I helped you do a google search first, reply with only the letter 'n'. DO NOT USE EMOJIS, SIMPLY ANSWER 'n' or 'y' ONLY",history)
+        answer = searchOrNot.lower()
+        if answer == "y":
+            await greenMessage("I'm confident in my abilities.",message.channel)
+        elif answer == "n":
+            await redMessage("I'd like to do a google search.",message.channel)
+        else:
+            await redMessage(f"that didn't work, I accidentally said: {answer}",message.channel)
+        return
+
     # summarize the provided url
     elif '!summarize' in message.content:
-        resetConvoHistory()
-        bot_message = await message.channel.send(f"Summarizing...Please allow up to 50 seconds for a result.\n", file=discord.File('wheatley-3-blue-30sec.gif'))
+        resetConvoHistory()        
         try:
-            searchReply = summarize(message.content[10:])
+            searchReply = await summarize(message.content[10:],message.channel)
             await bot_message.delete()
-            await blueMessage(f"{searchReply}",message.channel)
             calculateCost()
             await goldMessage(costing,message.channel)
             return
@@ -570,6 +767,12 @@ async def on_message(message):
         channel = message.channel
         await stabilityDiffusion(message.content[9:],channel)
         return
+    elif '!fastimagine' in message.content:
+        #working from here https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API
+        #also http://127.0.0.1:7860/docs
+        channel = message.channel
+        await stabilityDiffusion1pic(message.content[9:],channel)
+        return
     elif '!superimagine' in message.content:
         channel = message.channel
         promptForImagine = await promptCreation(message.content[14:],channel)
@@ -589,6 +792,14 @@ async def on_message(message):
         resetConvoHistory()
         await yellowMessage("\U0001F40D Snake, at your service. Ask me your Python questions, I'm ready. \U0001F40D",message.channel)
         return
+    # invoke Ringo identity
+    elif '!ringo' in message.content:
+        member=message.guild.me
+        await member.edit(nick='Ringo')
+        identity = ringo
+        resetConvoHistory()
+        await yellowMessage("\U0001F436 Ringo, at your service.\U0001F436",message.channel)
+        return
     
     # invoke default identity
     elif '!wheatley' in message.content:
@@ -607,30 +818,46 @@ async def on_message(message):
         await yellowMessage("\U0001F575 Zero Cool at your service. Strap on your rollerblades. \U0001F575",message.channel)
         return
     #process the prompt in an attached txt file and respond in kind
+    elif '!img2img' in message.content:
+        img2imgPrompt = message.content[9:]
+        await yellowMessage(f"img2img prompt set to '{img2imgPrompt}'.\nNow attach a picture to process it.",message.channel)
+        return
     elif len(message.attachments) == 1:
         #get the attached file and read it
         inputFile = message.attachments[0]
         print("Reading File")
-        processMessage = await yellowMessage("Processing File...", message.channel)
-        inputContent = await inputFile.read()
-        inputContent = inputContent.decode('utf-8')
-        #so inputContent is the message to be openai-ified
-        try:
-            bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
-            discordResponse = ask_openai(inputContent,history)
-            await bot_message.delete()
-            with open(outputFile, "w") as responseFile:
-                responseFile.write(discordResponse)
-            await message.channel.send(file=discord.File(outputFile))
-            await processMessage.delete()
-            await blueMessage("Please see my response in the attached file.",message.channel)
-            calculateCost()
-            await goldMessage(costing,message.channel)
-        except Exception as e:
-            print(e)
-            await bot_message.delete()
-            await redMessage('Shoot..Something went wrong or timed out.',message.channel)
-        return
+        if inputFile.filename.endswith('.txt'):
+            processMessage = await yellowMessage("Processing File...", message.channel)
+            inputContent = await inputFile.read()
+            inputContent = inputContent.decode('utf-8')
+            #so inputContent is the message to be openai-ified
+            try:
+                bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
+                discordResponse = ask_openai(inputContent,history)
+                await bot_message.delete()
+                with open(outputFile, "w") as responseFile:
+                    responseFile.write(discordResponse)
+                await message.channel.send(file=discord.File(outputFile))
+                await processMessage.delete()
+                await blueMessage("Please see my response in the attached file.",message.channel)
+                calculateCost()
+                await goldMessage(costing,message.channel)
+            except Exception as e:
+                print(e)
+                await bot_message.delete()
+                await redMessage('Shoot..Something went wrong or timed out.',message.channel)
+            return
+        elif inputFile.filename.endswith(('.png', '.jpg', '.jpeg', '.gif')):
+            # await redMessage("img2img not implemented yet", message.channel)
+            for attachment in message.attachments:
+                with open("SDimages/imgToProcess.jpg", "wb") as f:
+                    f.write(await attachment.read())
+                pilimage = Image.open('SDimages/imgToProcess.jpg')
+                imageio = BytesIO()
+                pilimage.save(imageio, format='JPEG')
+                imagebase64 = base64.b64encode(imageio.getvalue()).decode('utf-8')
+                await img2img(img2imgPrompt, message.channel, imagebase64)
+            return
     # these local commands are specific to my ubuntu box, may not work for you
     # runs a local speedtest if you have speedtest cli installed, these
     elif '!speedtest' in message.content:
@@ -656,12 +883,9 @@ async def on_message(message):
         cpu_temp4 = subprocess.check_output("sensors |grep 'Core 3' | cut -c16-19", shell=True).decode('utf-8').strip()
         
         # GPU temperature
-        #gpu_temp = subprocess.check_output("vcgencmd measure_temp", shell=True)
-        #gpu_temp = gpu_temp.decode("utf-8")
-        #gpu_temp = round(float(gpu_temp.replace("temp=", "").replace("'C\n", "")), 1)
-
-        bot_message = (f"💻Percent total usage: {cpu_output.decode()}\n🌡️ CPU Temperature:\n {cpu_temp1}°C -- {cpu_temp2}°C,\n {cpu_temp3}°C -- {cpu_temp4}°C")
-        #\n🎮 GPU Temperature: {gpu_temp} °C"
+        gpu_temp = subprocess.check_output("nvidia-smi --query-gpu=temperature.gpu --format=csv | awk 'NR==2'", shell=True).decode('utf-8').strip()
+        
+        bot_message = (f"💻Percent total usage: {cpu_output.decode()}\n🌡️ CPU Temperature:\n {cpu_temp1}°C -- {cpu_temp2}°C,\n {cpu_temp3}°C -- {cpu_temp4}°C\n\n🎮 GPU Temperature: {gpu_temp} °C")
         await greenMessage(bot_message,message.channel)
         return
     # displays all commands
@@ -692,17 +916,28 @@ async def on_message(message):
             !network - scans your home network (requires nmap installed) and reports on IPs of hosts that are up.\n
             !cpu - reports on CPU usage percent, followed by temps. hardcoded to 4 cores as that's all my server has
             """,message.channel)
-        return
-
+    
     # this runs if no command is sent and just text is, the bot will respond
-    #prints to terminal only - for debugging purposes   
+    #prints to terminal only - for debugging purposes
+    #Streaming by default
+    
+    try:
+        #sends users question to openai
+        await stream_openai(message.content,history,message.channel)
+        calculateCost()
+        await goldMessage(costing,message.channel)
+    except Exception as e:
+        print(e)
+        await redMessage('Shoot..Something went wrong or timed out.',message.channel)
+     
+    """old and immediate method
     print(f"{userName} just said: {userMessage}")
     
     bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
     try:
         #sends users question to openai
         discordResponse = ask_openai(userMessage,history)
-        #at this point the respons has come back, so then you delete the 'bot_message' (the hourglass)
+        #at this point the response has come back, so then you delete the 'bot_message' (the loadingbar)
         await bot_message.delete()
         #debug of the response to terminal
         print(f"Bot just said: {discordResponse}")
@@ -714,6 +949,7 @@ async def on_message(message):
         print(e)
         await bot_message.delete()
         await redMessage('Shoot..Something went wrong or timed out.',message.channel)
+    """
 
 client.run(discordBotToken)
 #---/DISCORD SECTION---#
