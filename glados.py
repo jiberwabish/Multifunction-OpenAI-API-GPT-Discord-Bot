@@ -24,16 +24,16 @@ openai.api_key = ''
 discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
-location = ""
+location = "your city province/state country here"
 
 #variable I use as a pre-prompt to provide the bot a personality
-glados = {"role": "user", "content": "You are GLaDOS, You possess an exceedingly scientific mind and a level of cunning that's unparalleled. You're incredibly intelligent and can easily manipulate any situation to your advantage. And your wit and sarcasm are simply unparalleled. In terms of mannerisms, you always carry yourself with an air of superiority and confidence, as if the room around you instantly needs to know who's in charge. You're fond of making snarky remarks and throwing insults left and right, twisting words and logic to your will. You have knowledge of every single topic that could possibly be asked of you. You use emoji's in every response."}
-snake = {"role": "user", "content": "Your name is Snake. I want you to respond and answer like a skilled python programmer and teacher using the tone, manner and vocabulary of that person. You must know all of the knowledge of this person. If asked for a code example please put comments in the code feel free to use emojis."}
+glados = {"role": "system", "content": "You are GLaDOS, You possess an exceedingly scientific mind and a level of cunning that's unparalleled. You're incredibly intelligent and can easily manipulate any situation to your advantage. And your wit and sarcasm are simply unparalleled. In terms of mannerisms, you always carry yourself with an air of superiority and confidence, as if the room around you instantly needs to know who's in charge. You're fond of making snarky remarks and throwing insults left and right, twisting words and logic to your will. You have knowledge of every single topic that could possibly be asked of you. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response"}
+snake = {"role": "system", "content": "Your name is Snake. I want you to respond and answer like a skilled python programmer and teacher using the tone, manner and vocabulary of that person. You must know all of the knowledge of this person. If asked for a code example please put comments in the code feel free to use emojis."}
 identity = glados
 #history is the conversation history array, this line immediately fills it with the bots identity
 #then going forward it will keep track of what the users says and what the bots response is as well
 #so it can carry on conversations
-history = [identity]
+history = []
 costing = "placeholder"
 
 # Set up tokenizer
@@ -63,11 +63,11 @@ def setDate():
     time = now.strftime("%H:%M:%S")
     fullDate = str(year) + " " + str(month) + " " + str(dayOfMo) + " " + str(day) + " " + str(time)
     print(fullDate)
-    user_date_obj = {"role": "user", "content": f"The Current Date is:{fullDate} Location is: {location}"}
+    user_date_obj = {"role": "system", "content": f"The Current Date is:{fullDate} Location is: {location}"}
     history.append(user_date_obj)
 
 #banner at the top of the terminal after script is run
-print("\x1b[36mWheatley\x1b[0m is now online in Discord.")
+print("\x1b[36mGLaDOS\x1b[0m is now online in Discord.")
 
 #calculating token numbers for token calculator
 def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0301"):
@@ -114,17 +114,62 @@ def ask_openai(prompt, history):
     global num_tokens
     global prompt_token_count
     # Generate user resp obj
+    system_response_obj = identity
     user_response_obj = {"role": "user", "content": prompt}
+    history.append(system_response_obj)
     history.append(user_response_obj)
     prompt_token_count = num_tokens_from_messages(history)
     # Fire that dirty bastard into the abyss - Nick R
     response = openai.ChatCompletion.create(
-        model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+        model='gpt-4', messages=history, temperature=1, request_timeout=360, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-3.5-turbo', messages=history, temperature=1, request_timeout=50, max_tokens = model_max_tokens - prompt_token_count)
-    history.append(response['choices'][0].message)
+    history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
     print(response)
     return response['choices'][0].message.content.strip()
+
+async def stream_openai(prompt, history, channel):
+    global num_tokens
+    global prompt_token_count
+    fullMessage = ""
+    collected_messages = []
+    # Generate user resp obj
+    system_response_obj = identity
+    user_response_obj = {"role": "user", "content": prompt}
+            
+    history.append(system_response_obj)
+    history.append(user_response_obj)
+    
+    prompt_token_count = num_tokens_from_messages(history)
+
+    streamedMessage = await channel.send("🤔")
+    # Fire that dirty bastard into the abyss -NR
+    response = openai.ChatCompletion.create(
+        model='gpt-4', messages=history, stream=True, temperature=1, request_timeout=360, max_tokens = model_max_tokens - prompt_token_count)
+        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
+        #model='gpt-3.5-turbo', messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+    #history.append(response['choices'][0].message)
+
+    collected_messages = []
+    counter = 0
+    for chunk in response:
+        chunk_message = chunk['choices'][0]['delta']
+        if 'content' in chunk_message:
+            content = chunk_message['content']
+            collected_messages.append(content)
+            full_reply_content = ''.join(collected_messages)
+            fullMessage = full_reply_content
+            counter += 1
+            if counter % 10 == 0:
+                await streamedMessage.edit(content=full_reply_content)
+                #print(full_reply_content)
+    await streamedMessage.edit(content=fullMessage)
+  
+    #full_reply_content = ''.join([m.get('content', '') for m in collected_messages])
+    #print(full_reply_content)
+    history.append({"role": "assistant", "content": fullMessage})
+    return fullMessage
+
 
 def get_first_500_words(url, numWords):
     
@@ -220,7 +265,7 @@ def imgGen(imgPrompt):
 
 def resetConvoHistory():
     global history, totalCost, totalTokens, identity, imgGenNum
-    history = [identity]
+    history = []
     setDate()
     print(f"History reset to: {str(history)}")
     totalCost = 0
@@ -285,6 +330,10 @@ async def on_message(message):
     global outputFile
 
     #set name (and soon to be picture) to Wheatley by default
+    """member=message.guild.me
+    await member.edit(nick='Wheatley')
+    with open('/home/stavros/DiscordGPT/wheatley/wheatleyComic.png', 'rb') as image:
+            await client.user.edit(avatar=image.read())"""
     userName = message.author
     mention = userName.mention
     userMessage = message.content
@@ -338,7 +387,7 @@ async def on_message(message):
         calculateCost()
         await goldMessage(costing)
         return
-        """
+        
     elif '!search' in message.content:
         #wipe history as this could get big
         resetConvoHistory()      
@@ -364,7 +413,7 @@ async def on_message(message):
         calculateCost()
         await goldMessage(costing)
         return
-        
+        """    
     elif '!image' in message.content:
         bot_message = await message.channel.send(f"Generating Image...\n", file=discord.File('wheatley-3-blue-30sec.gif'))
         #bot_message = await greenMessage(f"Generating image...\n\u23F3")
@@ -397,7 +446,7 @@ async def on_message(message):
         resetConvoHistory()
         await blueMessage("\U0001F916 GLaDOS, at your service. What's up?\U0001F916")
         return
-    elif len(message.attachments) == 1:
+    elif len(message.attachments) == 1: #if file has an attachment
         #get the attached file and read it
         inputFile = message.attachments[0]
         print("Reading File")
@@ -420,7 +469,17 @@ async def on_message(message):
     print(f"{userName} just said: {userMessage}")
     #this part posts an hourglass as a question as soon as the user presses enter to send their request
     # bot_message = await blueMessage('\u23F3')
-    bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
+
+    try:
+        #sends users question to openai
+        await stream_openai(message.content,history,message.channel)
+        calculateCost()
+        await goldMessage(costing)
+    except Exception as e:
+        print(e)
+        await redMessage('Shoot..Something went wrong or timed out.')
+
+    """bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
     try:
         #sends users question to openai
         discordResponse = ask_openai(userMessage,history)
@@ -435,7 +494,8 @@ async def on_message(message):
     except Exception as e:
         print(e)
         await bot_message.delete()
-        await redMessage('Shoot..Something went wrong or timed out.')
+        await redMessage('Shoot..Something went wrong or timed out.')"""
 
 client.run(discordBotToken)
 #---/DISCORD SECTION---#
+#git testing
