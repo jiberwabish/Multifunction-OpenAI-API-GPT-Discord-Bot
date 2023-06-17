@@ -1,6 +1,5 @@
 # host on your own computer and private server and connect to your Discord bot with your Token
 # fill in your own keys etc just below the imports
-# if you have a stable diffusion install running, change IP info in the stablediffusion functions and create a folder where your bot runs with the same name as described in the function for images to be stored there
 # jiberwabish 2023
 
 #so many libraries to import
@@ -34,7 +33,7 @@ openai.api_key = ''
 discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
-location = "enter your city province/state country here"
+location = ""
 
 
 #variable I use as a pre-prompt to provide the bot a personality
@@ -62,11 +61,12 @@ prompt_token_count = 0
 fullDate =""
 imgGenNum = 0
 cleanedBotSearchGen = ""
-img2imgPrompt = "van gogh art style"
+img2imgPrompt = "watercolor"
 #setup !search variables
 url1 = ""
 url2 = ""
 url3 = ""
+url4 = ""
 
 #!file variable
 inputContent = ""
@@ -121,11 +121,11 @@ def calculateCost():
     global num_tokens
     global prompt_token_count
     #calculate cost
-    cost_per_token = 0.002 / 1000  # $0.002 for turbo3.5 per 1000 tokens
+    cost_per_token = 0.0015 / 1000  # $0.002 for turbo3.5 per 1000 tokens
     totalTokens = num_tokens_from_messages(history) - 4
     totalCost = totalTokens * cost_per_token + imgGenNum * 0.02
     global costing
-    costing = f"Session: {totalTokens} tokens (${totalCost:.4f})."
+    costing = f"🪙 ${totalCost:.4f} -- 🎟️ Tokens {totalTokens}"
 
 #function that takes the user input and sends it off to openai model specified
 #and returns the bots response back to where it's called as the 'message' variable 
@@ -144,7 +144,29 @@ def ask_openai(prompt, history):
     response = openai.ChatCompletion.create(
         #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
-        model='gpt-3.5-turbo', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+        model='gpt-3.5-turbo-0613', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+    #history.append(response['choices'][0].message)
+    history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
+    print(response)
+    return response['choices'][0].message.content.strip()
+
+def ask_openai_16k(prompt, history):
+    global num_tokens
+    global prompt_token_count
+    # Generate user resp obj
+    system_response_obj = identity
+    user_response_obj = {"role": "user", "content": prompt}
+            
+    history.append(system_response_obj)
+    history.append(user_response_obj)
+    
+    prompt_token_count = num_tokens_from_messages(history)
+    print(prompt_token_count)
+    # Fire that dirty bastard into the abyss -NR
+    response = openai.ChatCompletion.create(
+        #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
+        model='gpt-3.5-turbo-16k', messages=history, temperature=1, request_timeout=240, max_tokens = 16000 - prompt_token_count)
     #history.append(response['choices'][0].message)
     history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
     print(response)
@@ -169,7 +191,49 @@ async def stream_openai(prompt, history, channel):
     response = openai.ChatCompletion.create(
         #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
-        model='gpt-3.5-turbo', messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+        model="gpt-3.5-turbo-0613", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+    #history.append(response['choices'][0].message)
+
+    collected_messages = []
+    counter = 0
+    for chunk in response:
+        chunk_message = chunk['choices'][0]['delta']
+        if 'content' in chunk_message:
+            content = chunk_message['content']
+            collected_messages.append(content)
+            full_reply_content = ''.join(collected_messages)
+            fullMessage = full_reply_content
+            counter += 1
+            if counter % 10 == 0:
+                await streamedMessage.edit(content=full_reply_content)
+                #print(full_reply_content)
+    await streamedMessage.edit(content=fullMessage)
+  
+    #full_reply_content = ''.join([m.get('content', '') for m in collected_messages])
+    #print(full_reply_content)
+    history.append({"role": "assistant", "content": fullMessage})
+    return fullMessage
+
+async def stream_openai_16k(prompt, history, channel):
+    global num_tokens
+    global prompt_token_count
+    fullMessage = ""
+    collected_messages = []
+    # Generate user resp obj
+    system_response_obj = identity
+    user_response_obj = {"role": "user", "content": prompt}
+            
+    history.append(system_response_obj)
+    history.append(user_response_obj)
+    
+    prompt_token_count = num_tokens_from_messages(history)
+
+    streamedMessage = await channel.send("🤔")
+    # Fire that dirty bastard into the abyss -NR
+    response = openai.ChatCompletion.create(
+        #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
+        model="gpt-3.5-turbo-16k", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = 16000 - prompt_token_count)
     #history.append(response['choices'][0].message)
 
     collected_messages = []
@@ -217,9 +281,9 @@ def get_first_500_words(url, numWords):
 
 #summarize a single url
 async def summarize(url,channel):
-    scrapedSummaryUrl = get_first_500_words(url,2000)
+    scrapedSummaryUrl = get_first_500_words(url,13000)
     try:
-        await stream_openai(f"Please summarize the following information into bullet points ```{scrapedSummaryUrl}```. Include a TL;DR section at the top, a summary in the middle, then highlight the most important information at the end.",history,channel)
+        await stream_openai_16k(f"Please summarize the following information into a point form list. Don't skip any important info but of course skip the fluff content. Make the points short and to the point. Include a single sentence TL;DR at the end. KEEP YOUR RESPONSE UNDER 2000 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. Article: ```{scrapedSummaryUrl}```.",history,channel)
     except Exception as e:
         print(e)
         return('Shoot..Something went wrong or timed out.')
@@ -257,9 +321,9 @@ async def deepGoogle(query,channel):
     
     print("Scraping...")
     #scrape these results with beautiful soup.. mmmm
-    scraped1 = get_first_500_words(url1,500)
-    scraped2 = get_first_500_words(url2,500)
-    scraped3 = get_first_500_words(url3,500)
+    scraped1 = get_first_500_words(url1,4000)
+    scraped2 = get_first_500_words(url2,4000)
+    scraped3 = get_first_500_words(url3,4000)
     #put them all in one variable
     allScraped = (scraped1 or "") + " " + (scraped2 or "") + " " + (scraped3 or "")
 
@@ -274,7 +338,7 @@ async def deepGoogle(query,channel):
     print(f"{url1} \n{url2} \n{url3}") 
     #print(searchReply)
     try:
-        botReply = await stream_openai(f"You just performed a Google Search and possibly have some background on the topic of my question.  Answer my question based on that background if possible. If the answer isn't in the search results, try to field it yourself but mention the search was unproductive. DO use emojis. My question: {query}",history, channel)
+        botReply = await stream_openai_16k(f"You now have a wealth of information on the topic of my question. I will include it below.  Answer my question based on that information if possible. Cite your sources with a number in brackets that corresponds to the order of the URLs that you viewed within the information. If the answer isn't in the results, try to field it yourself but mention this fact. DO use emojis. KEEP YOUR RESPONSE UNDER 2000 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. My question: {query}",history, channel)
         return(botReply)
     except Exception as e:
         print(e)
@@ -492,9 +556,9 @@ async def stabilityDiffusion1pic(prompt, channel):
         discembed1.set_image(url="attachment://image1.png")
 
         # Post the image to discord
-        bot_pic = await channel.send(file=file1, embed=discembed1)
+        await channel.send(file=file1, embed=discembed1)
         await asyncio.sleep(14510)
-        await bot_pic.delete()
+        
         return
     else:
         await redMessage("Sorry, StableDiffusion isn't running right now.", channel)
@@ -702,7 +766,7 @@ async def on_message(message):
             #specifically not in boxes so as to generate thumbnails
             #await message.channel.send(f"{url1} \n{url2} \n{url3}")
             #removing thumbnails for cleaner interface
-            await yellowMessage(f"{url1} \n{url2} \n{url3}",message.channel)
+            await yellowMessage(f"1.{url1}\n2.{url2}\n3.{url3}",message.channel)
             calculateCost()
             await goldMessage(costing,message.channel)
             return
@@ -726,14 +790,12 @@ async def on_message(message):
     elif '!summarize' in message.content:
         resetConvoHistory()        
         try:
-            searchReply = await summarize(message.content[10:],message.channel)
-            await bot_message.delete()
+            await summarize(message.content[10:],message.channel)            
             calculateCost()
             await goldMessage(costing,message.channel)
             return
         except Exception as e:
             print(e)
-            await bot_message.delete()
             await redMessage('Shoot..Something went wrong or timed out.',message.channel)
             return
     
@@ -833,7 +895,7 @@ async def on_message(message):
             #so inputContent is the message to be openai-ified
             try:
                 bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
-                discordResponse = ask_openai(inputContent,history)
+                discordResponse = ask_openai_16k(inputContent,history)
                 await bot_message.delete()
                 with open(outputFile, "w") as responseFile:
                     responseFile.write(discordResponse)
