@@ -33,7 +33,7 @@ openai.api_key = ''
 discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
-location = "your city, state/province, country here"
+location = "your city state province country here"
 
 
 #variable I use as a pre-prompt to provide the bot a personality
@@ -234,6 +234,48 @@ async def stream_openai_16k(prompt, history, channel):
         #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
         model="gpt-3.5-turbo-16k", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = 16000 - prompt_token_count)
+    #history.append(response['choices'][0].message)
+
+    collected_messages = []
+    counter = 0
+    for chunk in response:
+        chunk_message = chunk['choices'][0]['delta']
+        if 'content' in chunk_message:
+            content = chunk_message['content']
+            collected_messages.append(content)
+            full_reply_content = ''.join(collected_messages)
+            fullMessage = full_reply_content
+            counter += 1
+            if counter % 10 == 0:
+                await streamedMessage.edit(content=full_reply_content)
+                #print(full_reply_content)
+    await streamedMessage.edit(content=fullMessage)
+  
+    #full_reply_content = ''.join([m.get('content', '') for m in collected_messages])
+    #print(full_reply_content)
+    history.append({"role": "assistant", "content": fullMessage})
+    return fullMessage
+
+async def stream_openai_gpt4(prompt, history, channel):
+    global num_tokens
+    global prompt_token_count
+    fullMessage = ""
+    collected_messages = []
+    # Generate user resp obj
+    system_response_obj = identity
+    user_response_obj = {"role": "user", "content": prompt}
+            
+    history.append(system_response_obj)
+    history.append(user_response_obj)
+    
+    prompt_token_count = num_tokens_from_messages(history)
+
+    streamedMessage = await channel.send("🧠")
+    # Fire that dirty bastard into the abyss -NR
+    response = openai.ChatCompletion.create(
+        model='gpt-4', messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = 8096 - prompt_token_count)
+        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
+        #model="gpt-3.5-turbo-0613", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
     #history.append(response['choices'][0].message)
 
     collected_messages = []
@@ -707,8 +749,6 @@ async def on_ready():
                 resetConvoHistory()
                 #searchReply = await deepGoogle(f"What is the weather forecast for {location} today? VERY BRIEFLY note the current temp, the high and low for the day, and if there are any alerts, please mention them.",channel)
                 await deepGoogle(f"In point form style VERY BRIEFLY note the current temperature, the high and low for the day, and if there are any alerts for {location}, please mention them. Like this: ```Current Temp: [current temp here in celsius] [new line] High/Low: [they day's highest and lowest temperature here] [new line] Probability of Rain: [the probability of rain here] [new line] UV Rating: [the highest uv rating] [new line][then just comment briefly on the weather here]```",channel)
-                #print weather and urls to the screen
-                await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
                 #print a pic depicting the weather
                 weatherPicPrompt = ask_openai("You just told me the weather, now describe an outdoor scene depicting that weather. Reply with ONLY the description and nothing more",history)
                 print(weatherPicPrompt)
@@ -724,9 +764,8 @@ async def on_ready():
             if now.hour == 9 and now.minute == 00:
                 resetConvoHistory()
                 channel = await client.fetch_channel(reminder_channel_id)
-                await deepGoogle("What is the latest in Cybersecurity news? Summarize each news item with a bullet point each. Do not limit your search to a single site.",channel)                
+                await deepGoogle("What is the latest in Cybersecurity news? KEEP YOUR RESPONSE TO 1500 CHARACTERS OR LESS",channel)                
                 #cybermessage1 = await purpleMessage(newsRequest,channel)
-                await yellowMessage(f"{url1} \n{url2} \n{url3}",channel)
                 resetConvoHistory()              
             await asyncio.sleep(60)  # Wait for 1 min before checking again
     #start timer loop
@@ -964,6 +1003,17 @@ async def on_message(message):
         bot_message = (f"💻Percent total usage: {cpu_output.decode()}\n🌡️ CPU Temperature:\n {cpu_temp1}°C -- {cpu_temp2}°C,\n {cpu_temp3}°C -- {cpu_temp4}°C\n\n🎮 GPU Temperature: {gpu_temp} °C")
         await greenMessage(bot_message,message.channel)
         return
+    elif '!gpt4' in message.content:        
+        try:
+            #sends users question to openai
+            await stream_openai_gpt4(message.content,history,message.channel)
+            calculateCost()
+            await goldMessage(f"🪙 ${(.06/1000) * totalTokens:.4f} -- 🎟️ Tokens {totalTokens}",message.channel)
+        except Exception as e:
+            error_message = str(e)
+            print(e)        
+            await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",message.channel)
+        return
     # displays all commands
     elif '!help' in message.content:
         await greenMessage(f"""The following functions are currently available:\n
@@ -992,6 +1042,7 @@ async def on_message(message):
             !network - scans your home network (requires nmap installed) and reports on IPs of hosts that are up.\n
             !cpu - reports on CPU usage percent, followed by temps. hardcoded to 4 cores as that's all my server has
             """,message.channel)
+        return
     
     # this runs if no command is sent and just text is, the bot will respond
     #prints to terminal only - for debugging purposes
