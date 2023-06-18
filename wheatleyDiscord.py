@@ -33,7 +33,7 @@ openai.api_key = ''
 discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
-location = ""
+location = "your city, state/province, country here"
 
 
 #variable I use as a pre-prompt to provide the bot a personality
@@ -283,10 +283,12 @@ def get_first_500_words(url, numWords):
 async def summarize(url,channel):
     scrapedSummaryUrl = get_first_500_words(url,13000)
     try:
-        await stream_openai_16k(f"Please summarize the following information into a point form list. Don't skip any important info but of course skip the fluff content. Make the points short and to the point. Include a single sentence TL;DR at the end. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. Article: ```{scrapedSummaryUrl}```.",history,channel)
+        await stream_openai_16k(f"Please summarize the following information into a point form list. Don't skip any important info but of course skip the fluff content. Make the points short and to the point. Include a single sentence TL;DR at the very bottom. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. Article: ```{scrapedSummaryUrl}```.",history,channel)
     except Exception as e:
+        error_message = str(e)
         print(e)
-        return('Shoot..Something went wrong or timed out.')
+        await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",channel)
+        return
     return
 
 #googling function, asks bot to create a search term using the users prompt, then searches google
@@ -298,13 +300,17 @@ async def deepGoogle(query,channel):
     usersQuestion = query
     try:
         # botSearchGen = ask_openai(f"I would like to search Google for {usersQuestion}. Please generate a useful and effective search query and reply ONLY with that updated query. Don't use emoji's here. Remember, answer ONLY with the query that will be sent to Google.",history)
-        botSearchGen = ask_openai(f"You have just been asked the following question: {usersQuestion}. Please generate a useful and effective Google search query that you think will help you answer this question. Reply ONLY with the Google search query. Don't use emoji's here. Remember, answer ONLY with the query that will be sent to Google.",history)
+        botSearchGen = ask_openai(f"You have just been asked the following question: {usersQuestion}. Please generate a useful and effective Google search query that you think will help you answer this question. Reply ONLY with the Google search query. Don't use emoji's here. If you want to use quotes, make sure to put a backslash before the first one. Remember, answer ONLY with the query that will be sent to Google.",history)
     except Exception as e:
+        error_message = str(e)
         print(e)
-        return('Shoot..Something went wrong or timed out.')
+        return(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}")
 
     service = build("customsearch", "v1", developerKey=googleApiKey)
-    cleanedBotSearchGen=botSearchGen.strip('"')
+    if botSearchGen.startswith('"') and botSearchGen.endswith('"'):
+        cleanedBotSearchGen = botSearchGen.strip('"')
+    else:
+        cleanedBotSearchGen = botSearchGen
     print(f"Searching for {cleanedBotSearchGen}")
     await yellowMessage(f"Search string: {cleanedBotSearchGen}",channel)
     result = service.cse().list(
@@ -318,12 +324,14 @@ async def deepGoogle(query,channel):
         url3 = result['items'][2]['link']        
     except (TypeError, KeyError):
         print("No URLs found, try rewording your search.")
+        await redMessage("No URLs found.",channel)
+        return
     
     print("Scraping...")
     #scrape these results with beautiful soup.. mmmm
-    scraped1 = get_first_500_words(url1,4000)
-    scraped2 = get_first_500_words(url2,4000)
-    scraped3 = get_first_500_words(url3,4000)
+    scraped1 = get_first_500_words(url1,3000)
+    scraped2 = get_first_500_words(url2,3000)
+    scraped3 = get_first_500_words(url3,3000)
     #put them all in one variable
     allScraped = (scraped1 or "") + " " + (scraped2 or "") + " " + (scraped3 or "")
 
@@ -339,10 +347,13 @@ async def deepGoogle(query,channel):
     #print(searchReply)
     try:
         botReply = await stream_openai_16k(f"You now have a wealth of information on the topic of my question. I will include it below.  Answer my question based on that information if possible. Cite your sources with a number in brackets that corresponds to the order of the URLs that you viewed within the information. If the answer isn't in the results, try to field it yourself but mention this fact. DO use emojis. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. My question: {query}",history, channel)
+        await yellowMessage(f"1.{url1}\n2.{url2}\n3.{url3}",channel)
         return(botReply)
     except Exception as e:
+        error_message = str(e)
         print(e)
-        return("Shoot..sorry. I found the following urls but can't comment on them at the moment.")
+        await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",channel)
+        return
 
 #function that generates an image via your openai api key, 2cents a pop
 def imgGen(imgPrompt):
@@ -658,11 +669,12 @@ async def promptCreation(prompt,channel):
         await prompt_message.delete()
         return(discordResponse)
     except Exception as e:
+        error_message = str(e)
         print(e)
         await bot_message.delete()
-        await redMessage('Shoot..Something went wrong or timed out.',channel)
+        await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",channel)
         return
-
+        
 @client.event
 async def on_ready():
     #change this to the channel id where you want reminders to pop up
@@ -766,15 +778,15 @@ async def on_message(message):
             #specifically not in boxes so as to generate thumbnails
             #await message.channel.send(f"{url1} \n{url2} \n{url3}")
             #removing thumbnails for cleaner interface
-            await yellowMessage(f"1.{url1}\n2.{url2}\n3.{url3}",message.channel)
             calculateCost()
             await goldMessage(costing,message.channel)
             return
         except Exception as e:
-            print(e)
-            await bot_message.delete()
-            await redMessage('Shoot..Something went wrong or timed out.',message.channel)
-            return
+            error_message = str(e)
+            print(e)            
+            await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",channel)
+            return        
+            
     elif '!autosearch' in message.content:
         searchOrNot = ask_openai(f"You were just asked ```{message.content}```. If you are 75% confident answering this question on your current knowledgebase, reply with only the letter 'y'. If you think it would help if I helped you do a google search first, reply with only the letter 'n'. DO NOT USE EMOJIS, SIMPLY ANSWER 'n' or 'y' ONLY",history)
         answer = searchOrNot.lower()
@@ -795,8 +807,9 @@ async def on_message(message):
             await goldMessage(costing,message.channel)
             return
         except Exception as e:
-            print(e)
-            await redMessage('Shoot..Something went wrong or timed out.',message.channel)
+            error_message = str(e)
+            print(e)            
+            await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",channel)
             return
     
     #dall e image prompt, 2cents per pic
@@ -905,9 +918,10 @@ async def on_message(message):
                 calculateCost()
                 await goldMessage(costing,message.channel)
             except Exception as e:
+                error_message = str(e)
                 print(e)
                 await bot_message.delete()
-                await redMessage('Shoot..Something went wrong or timed out.',message.channel)
+                await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",channel)
             return
         elif inputFile.filename.endswith(('.png', '.jpg', '.jpeg', '.gif')):
             # await redMessage("img2img not implemented yet", message.channel)
@@ -989,29 +1003,10 @@ async def on_message(message):
         calculateCost()
         await goldMessage(costing,message.channel)
     except Exception as e:
-        print(e)
-        await redMessage('Shoot..Something went wrong or timed out.',message.channel)
-     
-    """old and immediate method
-    print(f"{userName} just said: {userMessage}")
-    
-    bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
-    try:
-        #sends users question to openai
-        discordResponse = ask_openai(userMessage,history)
-        #at this point the response has come back, so then you delete the 'bot_message' (the loadingbar)
-        await bot_message.delete()
-        #debug of the response to terminal
-        print(f"Bot just said: {discordResponse}")
-        # send the response back to Discord
-        await blueMessage(discordResponse,message.channel)
-        calculateCost()
-        await goldMessage(costing,message.channel)
-    except Exception as e:
-        print(e)
-        await bot_message.delete()
-        await redMessage('Shoot..Something went wrong or timed out.',message.channel)
-    """
+        error_message = str(e)
+        print(e)        
+        await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",message.channel)
+        return
 
 client.run(discordBotToken)
 #---/DISCORD SECTION---#
