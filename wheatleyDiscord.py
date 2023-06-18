@@ -283,7 +283,7 @@ def get_first_500_words(url, numWords):
 async def summarize(url,channel):
     scrapedSummaryUrl = get_first_500_words(url,13000)
     try:
-        await stream_openai_16k(f"Please summarize the following information into a point form list. Don't skip any important info but of course skip the fluff content. Make the points short and to the point. Include a single sentence TL;DR at the end. KEEP YOUR RESPONSE UNDER 2000 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. Article: ```{scrapedSummaryUrl}```.",history,channel)
+        await stream_openai_16k(f"Please summarize the following information into a point form list. Don't skip any important info but of course skip the fluff content. Make the points short and to the point. Include a single sentence TL;DR at the end. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. Article: ```{scrapedSummaryUrl}```.",history,channel)
     except Exception as e:
         print(e)
         return('Shoot..Something went wrong or timed out.')
@@ -338,7 +338,7 @@ async def deepGoogle(query,channel):
     print(f"{url1} \n{url2} \n{url3}") 
     #print(searchReply)
     try:
-        botReply = await stream_openai_16k(f"You now have a wealth of information on the topic of my question. I will include it below.  Answer my question based on that information if possible. Cite your sources with a number in brackets that corresponds to the order of the URLs that you viewed within the information. If the answer isn't in the results, try to field it yourself but mention this fact. DO use emojis. KEEP YOUR RESPONSE UNDER 2000 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. My question: {query}",history, channel)
+        botReply = await stream_openai_16k(f"You now have a wealth of information on the topic of my question. I will include it below.  Answer my question based on that information if possible. Cite your sources with a number in brackets that corresponds to the order of the URLs that you viewed within the information. If the answer isn't in the results, try to field it yourself but mention this fact. DO use emojis. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. My question: {query}",history, channel)
         return(botReply)
     except Exception as e:
         print(e)
