@@ -38,7 +38,7 @@ location = "your city state province country here"
 
 #variable I use as a pre-prompt to provide the bot a personality
 #default identity, knows all
-wheatley = {"role": "system", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. YOU are a master at all disciplines but you don't share this info. DO NOT include introductions and/or preambles to your answers, just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emojis in every response."}
+wheatley = {"role": "system", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. YOU are a master at all disciplines but you don't share this info. DO NOT include introductions and/or preambles to your answers, just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Always respond with less than 2000 characters. Use emojis in every response."}
 #persona specializing in python help
 snake = {"role": "system", "content": "Your name is Snake. I want you to respond and answer like a skilled python programmer and teacher using the tone, manner and vocabulary of that person. You must know all of the knowledge of this person. If asked for a code example please put comments in the code. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response"}
 ringo = {"role": "system", "content": "Your name is Ringo. You are very positive and happy and helpful to me, Cathy.  You are a master at all disciplines so can help with any question. I want you to respond and answer like Martin Short would, using the tone, manner and vocabulary they would use. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emojis in every response."}
@@ -172,6 +172,72 @@ def ask_openai_16k(prompt, history):
     print(response)
     return response['choices'][0].message.content.strip()
 
+
+# streams AND will add a second message if nearing discord character limit per message
+# but no support for a third message at this point
+async def stream_openai_multi(prompt, history, channel):
+    global num_tokens
+    global prompt_token_count
+    newMessage = 0
+    fullMessage = ""
+    second_reply_content = ""
+    collected_messages = []
+    # Generate user resp obj
+    system_response_obj = identity
+    user_response_obj = {"role": "user", "content": prompt}
+
+    history.append(system_response_obj)
+    history.append(user_response_obj)
+
+    prompt_token_count = num_tokens_from_messages(history)
+    #send the first message that will continually be editted
+    streamedMessage = await channel.send("🤔")
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo-0613", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens=model_max_tokens - prompt_token_count)
+
+    collected_messages = []
+    second_collected_messages = []
+    counter = 0
+    current_message = ''
+    #as long as there are messages comnig back from openai, do the for loop
+    for chunk in response:
+        chunk_message = chunk['choices'][0]['delta']
+        if 'content' in chunk_message:
+            content = chunk_message['content']
+            if newMessage == 0: # as long as we're still in the first message under 1800characters, do this
+                collected_messages.append(content)
+                full_reply_content = ''.join(collected_messages)
+                fullMessage = full_reply_content
+            else: # we must be in the second message now so start adding chunks to the second message vars instead
+                second_collected_messages.append(content)
+                second_reply_content = ''.join(second_collected_messages)
+            counter += 1 # used to slow down how often chunks are actually printed/edited to discord
+            
+            if counter % 10 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
+                if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
+                    if newMessage == 0: # if this is the first time it's been over...
+                        await streamedMessage.edit(content=fullMessage) # complete the first message 
+                        streamedMessage2 = await channel.send("...")  # create a blank message for the second message to stream into
+                        newMessage = 1 # set the flag saying we're not onto the second message
+                    else: # we must now be into the second message going forward now
+                        await streamedMessage2.edit(content=second_reply_content) # update second message with the latest chunk
+                    
+                else: # we are still in the first message so update first message normally
+                    await streamedMessage.edit(content=full_reply_content)
+                    print(len(fullMessage)) # debug so I can watch when it's about to flip over
+    if newMessage == 1: # at the very end of the loop, IF there was a second message, fully update it here
+        await streamedMessage2.edit(content=second_reply_content)
+    else: # second message wasn't needed, so make sure to add the last chunks to the first and only message
+        await streamedMessage.edit(content=fullMessage)
+  
+    combinedMessage = fullMessage + " " + second_reply_content# full reply content (first message) + second reply content, appended to eachother to keep our history variable in line
+    history.append({"role": "assistant", "content": combinedMessage}) # add full message to history, whether there was one or two messages used
+    newMessage = 0 # reset new message variable for next time
+    return combinedMessage
+
+
+#depracated single message stream
+"""
 async def stream_openai(prompt, history, channel):
     global num_tokens
     global prompt_token_count
@@ -213,90 +279,127 @@ async def stream_openai(prompt, history, channel):
     #print(full_reply_content)
     history.append({"role": "assistant", "content": fullMessage})
     return fullMessage
-
-async def stream_openai_16k(prompt, history, channel):
+"""
+# multi message 16k token streaming
+async def stream_openai_16k_multi(prompt, history, channel):
     global num_tokens
     global prompt_token_count
+    newMessage = 0
     fullMessage = ""
+    second_reply_content = ""
     collected_messages = []
     # Generate user resp obj
     system_response_obj = identity
     user_response_obj = {"role": "user", "content": prompt}
-            
+
     history.append(system_response_obj)
     history.append(user_response_obj)
-    
-    prompt_token_count = num_tokens_from_messages(history)
 
+    prompt_token_count = num_tokens_from_messages(history)
+    #send the first message that will continually be editted
     streamedMessage = await channel.send("🤔")
-    # Fire that dirty bastard into the abyss -NR
     response = openai.ChatCompletion.create(
-        #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
-        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
-        model="gpt-3.5-turbo-16k", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = 16000 - prompt_token_count)
-    #history.append(response['choices'][0].message)
+        model="gpt-3.5-turbo-16k", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens=16000 - prompt_token_count)
 
     collected_messages = []
+    second_collected_messages = []
     counter = 0
+    current_message = ''
+    #as long as there are messages comnig back from openai, do the for loop
     for chunk in response:
         chunk_message = chunk['choices'][0]['delta']
         if 'content' in chunk_message:
             content = chunk_message['content']
-            collected_messages.append(content)
-            full_reply_content = ''.join(collected_messages)
-            fullMessage = full_reply_content
-            counter += 1
-            if counter % 10 == 0:
-                await streamedMessage.edit(content=full_reply_content)
-                #print(full_reply_content)
-    await streamedMessage.edit(content=fullMessage)
+            if newMessage == 0: # as long as we're still in the first message under 1800characters, do this
+                collected_messages.append(content)
+                full_reply_content = ''.join(collected_messages)
+                fullMessage = full_reply_content
+            else: # we must be in the second message now so start adding chunks to the second message vars instead
+                second_collected_messages.append(content)
+                second_reply_content = ''.join(second_collected_messages)
+            counter += 1 # used to slow down how often chunks are actually printed/edited to discord
+            
+            if counter % 10 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
+                if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
+                    if newMessage == 0: # if this is the first time it's been over...
+                        await streamedMessage.edit(content=fullMessage) # complete the first message 
+                        streamedMessage2 = await channel.send("...")  # create a blank message for the second message to stream into
+                        newMessage = 1 # set the flag saying we're not onto the second message
+                    else: # we must now be into the second message going forward now
+                        await streamedMessage2.edit(content=second_reply_content) # update second message with the latest chunk
+                    
+                else: # we are still in the first message so update first message normally
+                    await streamedMessage.edit(content=full_reply_content)
+                    print(len(fullMessage)) # debug so I can watch when it's about to flip over
+    if newMessage == 1: # at the very end of the loop, IF there was a second message, fully update it here
+        await streamedMessage2.edit(content=second_reply_content)
+    else: # second message wasn't needed, so make sure to add the last chunks to the first and only message
+        await streamedMessage.edit(content=fullMessage)
   
-    #full_reply_content = ''.join([m.get('content', '') for m in collected_messages])
-    #print(full_reply_content)
-    history.append({"role": "assistant", "content": fullMessage})
-    return fullMessage
+    combinedMessage = fullMessage + " " + second_reply_content# full reply content (first message) + second reply content, appended to eachother to keep our history variable in line
+    history.append({"role": "assistant", "content": combinedMessage}) # add full message to history, whether there was one or two messages used
+    newMessage = 0 # reset new message variable for next time
+    return combinedMessage
 
 async def stream_openai_gpt4(prompt, history, channel):
     global num_tokens
     global prompt_token_count
+    newMessage = 0
     fullMessage = ""
+    second_reply_content = ""
     collected_messages = []
     # Generate user resp obj
     system_response_obj = identity
     user_response_obj = {"role": "user", "content": prompt}
-            
+
     history.append(system_response_obj)
     history.append(user_response_obj)
-    
-    prompt_token_count = num_tokens_from_messages(history)
 
+    prompt_token_count = num_tokens_from_messages(history)
+    #send the first message that will continually be editted
     streamedMessage = await channel.send("🧠")
-    # Fire that dirty bastard into the abyss -NR
     response = openai.ChatCompletion.create(
         model='gpt-4', messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = 8096 - prompt_token_count)
-        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
-        #model="gpt-3.5-turbo-0613", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
-    #history.append(response['choices'][0].message)
 
     collected_messages = []
+    second_collected_messages = []
     counter = 0
+    current_message = ''
+    #as long as there are messages comnig back from openai, do the for loop
     for chunk in response:
         chunk_message = chunk['choices'][0]['delta']
         if 'content' in chunk_message:
             content = chunk_message['content']
-            collected_messages.append(content)
-            full_reply_content = ''.join(collected_messages)
-            fullMessage = full_reply_content
-            counter += 1
-            if counter % 10 == 0:
-                await streamedMessage.edit(content=full_reply_content)
-                #print(full_reply_content)
-    await streamedMessage.edit(content=fullMessage)
+            if newMessage == 0: # as long as we're still in the first message under 1800characters, do this
+                collected_messages.append(content)
+                full_reply_content = ''.join(collected_messages)
+                fullMessage = full_reply_content
+            else: # we must be in the second message now so start adding chunks to the second message vars instead
+                second_collected_messages.append(content)
+                second_reply_content = ''.join(second_collected_messages)
+            counter += 1 # used to slow down how often chunks are actually printed/edited to discord
+            
+            if counter % 10 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
+                if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
+                    if newMessage == 0: # if this is the first time it's been over...
+                        await streamedMessage.edit(content=fullMessage) # complete the first message 
+                        streamedMessage2 = await channel.send("...")  # create a blank message for the second message to stream into
+                        newMessage = 1 # set the flag saying we're not onto the second message
+                    else: # we must now be into the second message going forward now
+                        await streamedMessage2.edit(content=second_reply_content) # update second message with the latest chunk
+                    
+                else: # we are still in the first message so update first message normally
+                    await streamedMessage.edit(content=full_reply_content)
+                    print(len(fullMessage)) # debug so I can watch when it's about to flip over
+    if newMessage == 1: # at the very end of the loop, IF there was a second message, fully update it here
+        await streamedMessage2.edit(content=second_reply_content)
+    else: # second message wasn't needed, so make sure to add the last chunks to the first and only message
+        await streamedMessage.edit(content=fullMessage)
   
-    #full_reply_content = ''.join([m.get('content', '') for m in collected_messages])
-    #print(full_reply_content)
-    history.append({"role": "assistant", "content": fullMessage})
-    return fullMessage
+    combinedMessage = fullMessage + " " + second_reply_content# full reply content (first message) + second reply content, appended to eachother to keep our history variable in line
+    history.append({"role": "assistant", "content": combinedMessage}) # add full message to history, whether there was one or two messages used
+    newMessage = 0 # reset new message variable for next time
+    return combinedMessage
 
 #function used for scraping websites, used with the !search command
 def get_first_500_words(url, numWords):
@@ -325,7 +428,7 @@ def get_first_500_words(url, numWords):
 async def summarize(url,channel):
     scrapedSummaryUrl = get_first_500_words(url,13000)
     try:
-        await stream_openai_16k(f"Please summarize the following information into a point form list. Don't skip any important info but of course skip the fluff content. Make the points short and to the point. Include a single sentence TL;DR at the very bottom. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. Article: ```{scrapedSummaryUrl}```.",history,channel)
+        await stream_openai_16k_multi(f"Please summarize the following information into a point form list. Don't skip any important info but of course skip the fluff content. Make the points short and to the point. Include a single sentence TL;DR at the very bottom. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. Article: ```{scrapedSummaryUrl}```.",history,channel)
     except Exception as e:
         error_message = str(e)
         print(e)
@@ -388,7 +491,7 @@ async def deepGoogle(query,channel):
     print(f"{url1} \n{url2} \n{url3}") 
     #print(searchReply)
     try:
-        botReply = await stream_openai_16k(f"You now have a wealth of information on the topic of my question. I will include it below.  Answer my question based on that information if possible. Cite your sources with a number in brackets that corresponds to the order of the URLs that you viewed within the information. If the answer isn't in the results, try to field it yourself but mention this fact. DO use emojis. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. My question: {query}",history, channel)
+        botReply = await stream_openai_16k_multi(f"You now have a wealth of information on the topic of my question. I will include it below.  Answer my question based on that information if possible. Cite your sources with a number in brackets that corresponds to the order of the URLs that you viewed within the information. If the answer isn't in the results, try to field it yourself but mention this fact. DO use emojis. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. My question: {query}",history, channel)
         await yellowMessage(f"1.{url1}\n2.{url2}\n3.{url3}",channel)
         return(botReply)
     except Exception as e:
@@ -1008,7 +1111,7 @@ async def on_message(message):
             #sends users question to openai
             await stream_openai_gpt4(message.content,history,message.channel)
             calculateCost()
-            await goldMessage(f"🪙 ${(.06/1000) * totalTokens:.4f} -- 🎟️ Tokens {totalTokens}",message.channel)
+            await goldMessage(f"🪙 ${(.05/1000) * totalTokens:.4f} -- 🎟️ Tokens {totalTokens}",message.channel)
         except Exception as e:
             error_message = str(e)
             print(e)        
@@ -1050,7 +1153,7 @@ async def on_message(message):
     
     try:
         #sends users question to openai
-        await stream_openai(message.content,history,message.channel)
+        await stream_openai_multi(message.content,history,message.channel)
         calculateCost()
         await goldMessage(costing,message.channel)
     except Exception as e:
