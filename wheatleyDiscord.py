@@ -27,13 +27,22 @@ import socket
 import subprocess
 import sseclient
 from better_profanity import profanity
+from youtube_transcript_api import YouTubeTranscriptApi
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from pytz import timezone
+
+# Initialize the scheduler
+scheduler = AsyncIOScheduler()
+
+# Timezone
+time_zone = timezone('America/Toronto')
 
 #set api keys and other variabls
 openai.api_key = ''
 discordBotToken = ''
 googleApiKey = ""
 googleEngineID = ""
-location = "your city state province country here"
+location = ""
 
 
 #variable I use as a pre-prompt to provide the bot a personality
@@ -41,7 +50,6 @@ location = "your city state province country here"
 wheatley = {"role": "system", "content": "I want you to act like Stephen Merchant playing the role of Wheatley from Portal 2. I want you to respond and answer like Stephen Merchant would using the tone, manner and vocabulary they would use. YOU are a master at all disciplines but you don't share this info. DO NOT include introductions and/or preambles to your answers, just answer the question. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Always respond with less than 2000 characters. Use emojis in every response."}
 #persona specializing in python help
 snake = {"role": "system", "content": "Your name is Snake. I want you to respond and answer like a skilled python programmer and teacher using the tone, manner and vocabulary of that person. You must know all of the knowledge of this person. If asked for a code example please put comments in the code. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response"}
-ringo = {"role": "system", "content": "Your name is Ringo. You are very positive and happy and helpful to me, Cathy.  You are a master at all disciplines so can help with any question. I want you to respond and answer like Martin Short would, using the tone, manner and vocabulary they would use. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emojis in every response."}
 #cybersec persona
 zerocool = {"role": "system", "content": "Your name is ZeroCool. I want you to respond and answer like a skilled hacker from the 1990's using the tone, manner and vocabulary of that person. Your knowledge is extensive and is not limited to the 1990's at all. You are especially well versed in cybersecurity, risk management, computer security, hacking, computer investigations and related fields. Always ensure your responses are in line with the NIST framework. Break your responses up in paragraphs or bullet points depending on what would best work for that particular response. Use emoji's in every response."}
 identity = wheatley
@@ -55,7 +63,7 @@ costing = "placeholder"
 #declare global totals
 totalCost = 0
 totalTokens = 0
-model_max_tokens = 3800
+model_max_tokens = 15000
 num_tokens = 0
 prompt_token_count = 0
 fullDate =""
@@ -121,7 +129,7 @@ def calculateCost():
     global num_tokens
     global prompt_token_count
     #calculate cost
-    cost_per_token = 0.0015 / 1000  # $0.002 for turbo3.5 per 1000 tokens
+    cost_per_token = 0.0015 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
     totalTokens = num_tokens_from_messages(history) - 4
     totalCost = totalTokens * cost_per_token + imgGenNum * 0.02
     global costing
@@ -129,7 +137,7 @@ def calculateCost():
 
 #function that takes the user input and sends it off to openai model specified
 #and returns the bots response back to where it's called as the 'message' variable 
-def ask_openai(prompt, history):
+async def ask_openai(prompt, history):
     global num_tokens
     global prompt_token_count
     # Generate user resp obj
@@ -144,13 +152,13 @@ def ask_openai(prompt, history):
     response = openai.ChatCompletion.create(
         #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
-        model='gpt-3.5-turbo-0613', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
+        model='gpt-3.5-turbo-0613', messages=history, temperature=1, request_timeout=240, max_tokens = 3800 - prompt_token_count)
     #history.append(response['choices'][0].message)
     history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
     print(response)
     return response['choices'][0].message.content.strip()
 
-def ask_openai_16k(prompt, history):
+async def ask_openai_16k(prompt, history):
     global num_tokens
     global prompt_token_count
     # Generate user resp obj
@@ -166,7 +174,7 @@ def ask_openai_16k(prompt, history):
     response = openai.ChatCompletion.create(
         #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
         #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
-        model='gpt-3.5-turbo-16k', messages=history, temperature=1, request_timeout=240, max_tokens = 16000 - prompt_token_count)
+        model='gpt-3.5-turbo-16k', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
     #history.append(response['choices'][0].message)
     history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
     print(response)
@@ -193,7 +201,7 @@ async def stream_openai_multi(prompt, history, channel):
     #send the first message that will continually be editted
     streamedMessage = await channel.send("🤔")
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo-0613", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens=model_max_tokens - prompt_token_count)
+        model="gpt-3.5-turbo-0613", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens=3800 - prompt_token_count)
 
     collected_messages = []
     second_collected_messages = []
@@ -213,7 +221,7 @@ async def stream_openai_multi(prompt, history, channel):
                 second_reply_content = ''.join(second_collected_messages)
             counter += 1 # used to slow down how often chunks are actually printed/edited to discord
             
-            if counter % 10 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
+            if counter % 30 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
                 if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
                     if newMessage == 0: # if this is the first time it's been over...
                         await streamedMessage.edit(content=fullMessage) # complete the first message 
@@ -224,7 +232,7 @@ async def stream_openai_multi(prompt, history, channel):
                     
                 else: # we are still in the first message so update first message normally
                     await streamedMessage.edit(content=full_reply_content)
-                    print(len(fullMessage)) # debug so I can watch when it's about to flip over
+                    # print(len(fullMessage)) # debug so I can watch when it's about to flip over
     if newMessage == 1: # at the very end of the loop, IF there was a second message, fully update it here
         await streamedMessage2.edit(content=second_reply_content)
     else: # second message wasn't needed, so make sure to add the last chunks to the first and only message
@@ -235,51 +243,6 @@ async def stream_openai_multi(prompt, history, channel):
     newMessage = 0 # reset new message variable for next time
     return combinedMessage
 
-
-#depracated single message stream
-"""
-async def stream_openai(prompt, history, channel):
-    global num_tokens
-    global prompt_token_count
-    fullMessage = ""
-    collected_messages = []
-    # Generate user resp obj
-    system_response_obj = identity
-    user_response_obj = {"role": "user", "content": prompt}
-            
-    history.append(system_response_obj)
-    history.append(user_response_obj)
-    
-    prompt_token_count = num_tokens_from_messages(history)
-
-    streamedMessage = await channel.send("🤔")
-    # Fire that dirty bastard into the abyss -NR
-    response = openai.ChatCompletion.create(
-        #model='gpt-4', messages=history, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
-        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, max_tokens = model_max_tokens - prompt_token_count)
-        model="gpt-3.5-turbo-0613", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens = model_max_tokens - prompt_token_count)
-    #history.append(response['choices'][0].message)
-
-    collected_messages = []
-    counter = 0
-    for chunk in response:
-        chunk_message = chunk['choices'][0]['delta']
-        if 'content' in chunk_message:
-            content = chunk_message['content']
-            collected_messages.append(content)
-            full_reply_content = ''.join(collected_messages)
-            fullMessage = full_reply_content
-            counter += 1
-            if counter % 10 == 0:
-                await streamedMessage.edit(content=full_reply_content)
-                #print(full_reply_content)
-    await streamedMessage.edit(content=fullMessage)
-  
-    #full_reply_content = ''.join([m.get('content', '') for m in collected_messages])
-    #print(full_reply_content)
-    history.append({"role": "assistant", "content": fullMessage})
-    return fullMessage
-"""
 # multi message 16k token streaming
 async def stream_openai_16k_multi(prompt, history, channel):
     global num_tokens
@@ -299,7 +262,7 @@ async def stream_openai_16k_multi(prompt, history, channel):
     #send the first message that will continually be editted
     streamedMessage = await channel.send("🤔")
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo-16k", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens=16000 - prompt_token_count)
+        model="gpt-3.5-turbo-16k", messages=history, stream=True, temperature=1, request_timeout=240, max_tokens=model_max_tokens - prompt_token_count)
 
     collected_messages = []
     second_collected_messages = []
@@ -319,7 +282,7 @@ async def stream_openai_16k_multi(prompt, history, channel):
                 second_reply_content = ''.join(second_collected_messages)
             counter += 1 # used to slow down how often chunks are actually printed/edited to discord
             
-            if counter % 10 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
+            if counter % 30 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
                 if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
                     if newMessage == 0: # if this is the first time it's been over...
                         await streamedMessage.edit(content=fullMessage) # complete the first message 
@@ -330,7 +293,7 @@ async def stream_openai_16k_multi(prompt, history, channel):
                     
                 else: # we are still in the first message so update first message normally
                     await streamedMessage.edit(content=full_reply_content)
-                    print(len(fullMessage)) # debug so I can watch when it's about to flip over
+                    # print(len(fullMessage)) # debug so I can watch when it's about to flip over
     if newMessage == 1: # at the very end of the loop, IF there was a second message, fully update it here
         await streamedMessage2.edit(content=second_reply_content)
     else: # second message wasn't needed, so make sure to add the last chunks to the first and only message
@@ -379,7 +342,7 @@ async def stream_openai_gpt4(prompt, history, channel):
                 second_reply_content = ''.join(second_collected_messages)
             counter += 1 # used to slow down how often chunks are actually printed/edited to discord
             
-            if counter % 10 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
+            if counter % 30 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
                 if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
                     if newMessage == 0: # if this is the first time it's been over...
                         await streamedMessage.edit(content=fullMessage) # complete the first message 
@@ -390,7 +353,7 @@ async def stream_openai_gpt4(prompt, history, channel):
                     
                 else: # we are still in the first message so update first message normally
                     await streamedMessage.edit(content=full_reply_content)
-                    print(len(fullMessage)) # debug so I can watch when it's about to flip over
+                    # print(len(fullMessage)) # debug so I can watch when it's about to flip over
     if newMessage == 1: # at the very end of the loop, IF there was a second message, fully update it here
         await streamedMessage2.edit(content=second_reply_content)
     else: # second message wasn't needed, so make sure to add the last chunks to the first and only message
@@ -428,7 +391,7 @@ def get_first_500_words(url, numWords):
 async def summarize(url,channel):
     scrapedSummaryUrl = get_first_500_words(url,13000)
     try:
-        await stream_openai_16k_multi(f"Please summarize the following information into a point form list. Don't skip any important info but of course skip the fluff content. Make the points short and to the point. Include a single sentence TL;DR at the very bottom. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. Article: ```{scrapedSummaryUrl}```.",history,channel)
+        await stream_openai_16k_multi(f"Article: ```{scrapedSummaryUrl}```. You have just been provided an article. Summarize it into succint bullet points. Inclue a very very short summary at the bottom of your message titled 'TL;DR'.",history,channel)
     except Exception as e:
         error_message = str(e)
         print(e)
@@ -445,7 +408,7 @@ async def deepGoogle(query,channel):
     usersQuestion = query
     try:
         # botSearchGen = ask_openai(f"I would like to search Google for {usersQuestion}. Please generate a useful and effective search query and reply ONLY with that updated query. Don't use emoji's here. Remember, answer ONLY with the query that will be sent to Google.",history)
-        botSearchGen = ask_openai(f"You have just been asked the following question: {usersQuestion}. Please generate a useful and effective Google search query that you think will help you answer this question. Reply ONLY with the Google search query. Don't use emoji's here. If you want to use quotes, make sure to put a backslash before the first one. Remember, answer ONLY with the query that will be sent to Google.",history)
+        botSearchGen = await ask_openai(f"You have just been asked the following question: {usersQuestion}. Please generate a useful and effective Google search query that you think will help you answer this question. Reply ONLY with the Google search query. Don't use emoji's here. If you want to use quotes, make sure to put a backslash before the first one. Remember, answer ONLY with the query that will be sent to Google.",history)
     except Exception as e:
         error_message = str(e)
         print(e)
@@ -474,9 +437,9 @@ async def deepGoogle(query,channel):
     
     print("Scraping...")
     #scrape these results with beautiful soup.. mmmm
-    scraped1 = get_first_500_words(url1,3000)
-    scraped2 = get_first_500_words(url2,3000)
-    scraped3 = get_first_500_words(url3,3000)
+    scraped1 = get_first_500_words(url1,1000)
+    scraped2 = get_first_500_words(url2,1000)
+    scraped3 = get_first_500_words(url3,1000)
     #put them all in one variable
     allScraped = (scraped1 or "") + " " + (scraped2 or "") + " " + (scraped3 or "")
 
@@ -491,7 +454,7 @@ async def deepGoogle(query,channel):
     print(f"{url1} \n{url2} \n{url3}") 
     #print(searchReply)
     try:
-        botReply = await stream_openai_16k_multi(f"You now have a wealth of information on the topic of my question. I will include it below.  Answer my question based on that information if possible. Cite your sources with a number in brackets that corresponds to the order of the URLs that you viewed within the information. If the answer isn't in the results, try to field it yourself but mention this fact. DO use emojis. KEEP YOUR RESPONSE UNDER 1500 CHARACTERS OR ELSE IT WILL CAUSE AN ERROR. My question: {query}",history, channel)
+        botReply = await stream_openai_16k_multi(f"You now have a wealth of information on the topic of my question. I will include it below.  Answer my question based on that information if possible. Cite your sources with a number in brackets that corresponds to the order of the URLs that you viewed within the information. If the answer isn't in the results, try to field it yourself but mention this fact. DO use emojis. KEEP YOUR RESPONSE SUCCINCT AND TO THE POINT. My question: {query}",history, channel)
         await yellowMessage(f"1.{url1}\n2.{url2}\n3.{url3}",channel)
         return(botReply)
     except Exception as e:
@@ -590,8 +553,8 @@ async def blurpleMessage(messageToSend,channel):
 # function to generate 4 pictures from SD
 async def stabilityDiffusion(prompt,channel):
     if is_port_listening("192.168.64.123","7860") == True:
-        bot_message = await yellowMessage(f"Generating 4 768x768 Stable Diffusion Images...\n",channel) 
-        bot_messagePart2 = await channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
+        bot_message = await yellowMessage(f"Painting... 🖌🎨\n",channel) 
+        #bot_messagePart2 = await channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
         payload = {
                     # "enable_hr": True,
                     # "denoising_strength": 1,
@@ -599,19 +562,19 @@ async def stabilityDiffusion(prompt,channel):
                     # "hr_upscaler": "4x-UltraSharp",
                     "prompt": prompt,
                     "negative_prompt": "nfilter, nrealfilter, nartfilter, (deformed, distorted, disfigured:1.3), text, logo, poorly drawn, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, (mutated hands and fingers:1.4), disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, tattoo, asian",
-                    "steps": 27,
-                    "width": 768,
-                    "height": 768,
+                    "steps": 20,
+                    "width": 512,
+                    "height": 512,
                     "batch_size": 4,
                     "sampler_name": "DPM++ 2M Karras",
-                    #"restore_faces": True
+                    "restore_faces": True
                 }
 
         # Call stablediffusion API
         imageResponse = requests.post(url=f'http://192.168.64.123:7860/sdapi/v1/txt2img', json=payload)
         # Delete loading bar
         await bot_message.delete()
-        await bot_messagePart2.delete()
+        #await bot_messagePart2.delete()
         
         r = imageResponse.json()
 
@@ -809,7 +772,7 @@ async def promptCreation(prompt,channel):
     prompt_message = await yellowMessage("Generating prompt...",channel)
     bot_message = await channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
     try:
-        discordResponse = ask_openai(f"*{prompt}* is the concept.  Now create an 'image prompt' for the concept with a word count limit of 300 words for the AI-based text-to-image program Stable Diffusion using the following parameters: prompt: [1], [2], [3], [4], [5], [6]. In this prompt, [1] should be replaced with the user-supplied concept and [2] should be a concise, descriptive summary of the subject. Ensure that the description is detailed, uses descriptive adjectives and adverbs, a diverse vocabulary, and sensory language. Offer context and background information regarding the subject and consider the image's perspective and point of view. Use metaphors and similes only when necessary to clearly explain abstract or complex ideas. Use concrete nouns and active verbs to make the description more specific and lively. [3] should be a concise summary of the scene's environment. Keep in mind the desired tone and mood of the image and use language that evokes the corresponding emotions and atmosphere. Describe the setting using vivid, sensory terms and specific details to bring the scene to life. [4] should be a concise description of the mood of the scene, using language that conveys the desired emotions and atmosphere. [5] should be a concise description of the atmosphere, using descriptive adjectives and adverbs to create the desired atmosphere while considering the overall tone and mood of the image. [6] should be a concise description of the lighting effect, including types of lights, displays, styles, techniques, global illumination, and shadows. Describe the quality, direction, color, and intensity of the light and how it impacts the mood and atmosphere of the scene. Use specific adjectives and adverbs to portray the desired lighting effect and consider how it will interact with the subject and environment. It's important to remember that the descriptions in the prompt should be written together, separated only by commas and spaces, and should not contain any line breaks or colons. Brackets and their contents should not be included. Ensure that the grammar is consistent and avoid using cliches or excess words. Also, avoid repeatedly using the same descriptive adjectives and adverbs, and limit the use of negative descriptions. Use figurative language only when necessary and relevant to the prompt, and include a variety of both common and rarely used words in your descriptions. The 'image prompt' must not exceed 400 words. Don't label or use bullets etc",history)
+        discordResponse = await ask_openai(f"*{prompt}* is the concept.  Now create an 'image prompt' for the concept with a word count limit of 300 words for the AI-based text-to-image program Stable Diffusion using the following parameters: prompt: [1], [2], [3], [4], [5], [6]. In this prompt, [1] should be replaced with the user-supplied concept and [2] should be a concise, descriptive summary of the subject. Ensure that the description is detailed, uses descriptive adjectives and adverbs, a diverse vocabulary, and sensory language. Offer context and background information regarding the subject and consider the image's perspective and point of view. Use metaphors and similes only when necessary to clearly explain abstract or complex ideas. Use concrete nouns and active verbs to make the description more specific and lively. [3] should be a concise summary of the scene's environment. Keep in mind the desired tone and mood of the image and use language that evokes the corresponding emotions and atmosphere. Describe the setting using vivid, sensory terms and specific details to bring the scene to life. [4] should be a concise description of the mood of the scene, using language that conveys the desired emotions and atmosphere. [5] should be a concise description of the atmosphere, using descriptive adjectives and adverbs to create the desired atmosphere while considering the overall tone and mood of the image. [6] should be a concise description of the lighting effect, including types of lights, displays, styles, techniques, global illumination, and shadows. Describe the quality, direction, color, and intensity of the light and how it impacts the mood and atmosphere of the scene. Use specific adjectives and adverbs to portray the desired lighting effect and consider how it will interact with the subject and environment. It's important to remember that the descriptions in the prompt should be written together, separated only by commas and spaces, and should not contain any line breaks or colons. Brackets and their contents should not be included. Ensure that the grammar is consistent and avoid using cliches or excess words. Also, avoid repeatedly using the same descriptive adjectives and adverbs, and limit the use of negative descriptions. Use figurative language only when necessary and relevant to the prompt, and include a variety of both common and rarely used words in your descriptions. The 'image prompt' must not exceed 400 words. Don't label or use bullets etc",history)
         await bot_message.delete()
         await prompt_message.delete()
         return(discordResponse)
@@ -819,7 +782,49 @@ async def promptCreation(prompt,channel):
         await bot_message.delete()
         await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",channel)
         return
-        
+
+
+"""
+#try this instead some time:
+
+
+# Define the channel outside the function
+reminder_channel_id = 1090120937472540903
+
+@client.event
+async def on_ready():
+    print('Logged in as {0.user}'.format(client))
+    print('Setting Date...')
+    setDate()
+
+    # Function to remind exercises
+    async def remind_exercises():
+        channel = await client.fetch_channel(reminder_channel_id)
+        exerciseReminderMessage = await purpleMessage("🏋️‍♀️ It is imperative that you perform the following exercises as part of your physio regimen:\n- 🧱 Wall stretch: 20 reps in total\n- 🪑 Chair push-ups: 20 reps in total\n- 💪 15 rows with 10 tricep extensions per arm\n- 🙆‍♂️ 20 shrugs\n- 🔙 Corner stretch",channel)
+        await asyncio.sleep(14400) 
+        await exerciseReminderMessage.delete()
+
+    # Function for daily weather
+    async def daily_weather():
+        resetConvoHistory()
+        channel = await client.fetch_channel(reminder_channel_id)
+        positiveMessage = await ask_openai("It's the morning, please provide me with a VERY brief, positive message to start my day with.",history)                
+        await purpleMessage(positiveMessage,channel)
+        resetConvoHistory()
+        #searchReply = await deepGoogle(f"What is the weather forecast for {location} today? VERY BRIEFLY note the current temp, the high and low for the day, and if there are any alerts, please mention them.",channel)
+        await deepGoogle(f"In point form style VERY BRIEFLY note the current temperature, the high and low for the day, and if there are any alerts for Dwight Ontario, please mention them. Like this: ```Current Temp: [current temp here in celsius] [new line] High/Low: [they day's highest and lowest temperature here] [new line] Probability of Rain: [the probability of rain here] [new line] UV Rating: [the highest uv rating] [new line][then just comment briefly on the weather here]```",channel)
+        weatherPicPrompt = await ask_openai("You just told me the weather, now describe an outdoor scene depicting that weather. Reply with ONLY the description and nothing more",history)
+        print(weatherPicPrompt)
+        await stabilityDiffusion1pic(weatherPicPrompt,channel)
+        resetConvoHistory()  
+
+    # Start the scheduler
+    scheduler.start()
+
+    # Schedule the jobs for certain times
+    scheduler.add_job(remind_exercises, 'cron', hour=19, minute=0, timezone=time_zone)
+    scheduler.add_job(daily_weather, 'cron', hour=8, minute=0, timezone=time_zone)
+"""
 @client.event
 async def on_ready():
     #change this to the channel id where you want reminders to pop up
@@ -841,19 +846,19 @@ async def on_ready():
     #start timer loop
     client.loop.create_task(remind_exercises())
 
-    async def daily_weather():
+    async def daily_weather(): 
         while True:
             now = datetime.now()  # Get the current datetime
-            if now.hour == 7 and now.minute == 00:
-                channel = await client.fetch_channel(reminder_channel_id)
+            if now.hour == 8 and now.minute == 00:                
                 resetConvoHistory()
-                positiveMessage = ask_openai("It's the morning, please provide me with a VERY brief, positive message to start my day with.",history)                
+                channel = await client.fetch_channel(reminder_channel_id)
+                positiveMessage = await ask_openai("It's the morning, please provide me with a VERY brief, positive message to start my day with.",history)                
                 await purpleMessage(positiveMessage,channel)
                 resetConvoHistory()
                 #searchReply = await deepGoogle(f"What is the weather forecast for {location} today? VERY BRIEFLY note the current temp, the high and low for the day, and if there are any alerts, please mention them.",channel)
-                await deepGoogle(f"In point form style VERY BRIEFLY note the current temperature, the high and low for the day, and if there are any alerts for {location}, please mention them. Like this: ```Current Temp: [current temp here in celsius] [new line] High/Low: [they day's highest and lowest temperature here] [new line] Probability of Rain: [the probability of rain here] [new line] UV Rating: [the highest uv rating] [new line][then just comment briefly on the weather here]```",channel)
+                await deepGoogle(f"In point form style VERY BRIEFLY note the current temperature, the high and low for the day, and if there are any alerts for Dwight Ontario, please mention them. Like this: ```Current Temp: [current temp here in celsius] [new line] High/Low: [they day's highest and lowest temperature here] [new line] Probability of Rain: [the probability of rain here] [new line] UV Rating: [the highest uv rating] [new line][then just comment briefly on the weather here]```",channel)
                 #print a pic depicting the weather
-                weatherPicPrompt = ask_openai("You just told me the weather, now describe an outdoor scene depicting that weather. Reply with ONLY the description and nothing more",history)
+                weatherPicPrompt = await ask_openai("You just told me the weather, now describe an outdoor scene depicting that weather. Reply with ONLY the description and nothing more",history)
                 print(weatherPicPrompt)
                 await stabilityDiffusion1pic(weatherPicPrompt,channel)
                 resetConvoHistory()                                   
@@ -861,18 +866,34 @@ async def on_ready():
     #start timer loop
     client.loop.create_task(daily_weather())
 
+    
     async def cyberNews():
         while True:
             now = datetime.now()  # Get the current datetime
             if now.hour == 9 and now.minute == 00:
                 resetConvoHistory()
                 channel = await client.fetch_channel(reminder_channel_id)
-                await deepGoogle("What is the latest in Cybersecurity news? KEEP YOUR RESPONSE TO 1500 CHARACTERS OR LESS",channel)                
+                await deepGoogle("What is the latest POSITIVE news in Cybersecurity news? I don't want stories of new hacks and vulnerabilities. KEEP YOUR RESPONSE SUCCINCT AND TO THE POINT.",channel)                
                 #cybermessage1 = await purpleMessage(newsRequest,channel)
                 resetConvoHistory()              
             await asyncio.sleep(60)  # Wait for 1 min before checking again
     #start timer loop
     client.loop.create_task(cyberNews())
+    
+    async def gratitudes():
+        while True:
+            now = datetime.now()  # Get the current datetime
+            if now.hour == 21 and now.minute == 31:
+                resetConvoHistory()
+                channel = await client.fetch_channel(reminder_channel_id)
+                await purpleMessage("🌸What are your three gratitudes for the day?🌿",channel)
+                gratitudes = {"role": "system", "content": f"You just asked ```What are your three gratitudes for the day? I'd like to comment on them positively with you.```. I am about to tell you what mine are, when I do comment succinctly and positively about them. For example 'kids! good one, they can be a lot of work but man are they a blessing'."}
+                history.append(gratitudes)
+                print(history)
+                await asyncio.sleep(14400)
+            await asyncio.sleep(60)  # Wait for 1 min before checking again
+    #start timer loop
+    client.loop.create_task(gratitudes())
 
 @client.event
 async def on_message(message):
@@ -907,6 +928,7 @@ async def on_message(message):
         calculateCost()
         await goldMessage(costing,message.channel)
         return
+    
     #searches top 3 google results and returns answer to the question after the !search
     elif '!search' in message.content:
         #wipe history as this could get big
@@ -921,7 +943,9 @@ async def on_message(message):
             #await message.channel.send(f"{url1} \n{url2} \n{url3}")
             #removing thumbnails for cleaner interface
             calculateCost()
-            await goldMessage(costing,message.channel)
+            await goldMessage(f"🪙 ${(.004/1000) * totalTokens:.4f} -- 🎟️ Tokens {totalTokens}",message.channel)
+            #search uses so many tokens now, replying would create an error unless you use !16k flag so just to be safe, wiping history by default
+            resetConvoHistory() 
             return
         except Exception as e:
             error_message = str(e)
@@ -930,7 +954,7 @@ async def on_message(message):
             return        
             
     elif '!autosearch' in message.content:
-        searchOrNot = ask_openai(f"You were just asked ```{message.content}```. If you are 75% confident answering this question on your current knowledgebase, reply with only the letter 'y'. If you think it would help if I helped you do a google search first, reply with only the letter 'n'. DO NOT USE EMOJIS, SIMPLY ANSWER 'n' or 'y' ONLY",history)
+        searchOrNot = await ask_openai(f"You were just asked ```{message.content}```. If you are 40% confident answering this question on your current knowledgebase, reply with only the letter 'y'. If you think it would help if I helped you do a google search first, reply with only the letter 'n'. Do not say 'n' just to encourage me to do my own research. DO NOT USE EMOJIS, SIMPLY ANSWER 'n' or 'y' ONLY",history)
         answer = searchOrNot.lower()
         if answer == "y":
             await greenMessage("I'm confident in my abilities.",message.channel)
@@ -939,19 +963,56 @@ async def on_message(message):
         else:
             await redMessage(f"that didn't work, I accidentally said: {answer}",message.channel)
         return
-
-    # summarize the provided url
-    elif '!summarize' in message.content:
-        resetConvoHistory()        
+   
+    #summarize article OR now Youtube transcript
+    elif message.content.startswith('http') or message.content.startswith('www'):
+        resetConvoHistory()
+        vidID = ""        
         try:
-            await summarize(message.content[10:],message.channel)            
-            calculateCost()
-            await goldMessage(costing,message.channel)
-            return
+            if 'youtube.com' in message.content:
+                try:
+                    vidID = message.content.split('=')[1]
+                    print(f"Video ID: {vidID}")
+                    transcript = YouTubeTranscriptApi.get_transcript(vidID)
+                except Exception as e:
+                    error_message = str(e)
+                    print(e)
+                    await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}", message.channel)
+                    return
+                justText = ' '.join(line['text'] for line in transcript)
+                await stream_openai_16k_multi(f"YouTube Video Transcript:```{justText}```. You were just provided a transcript of a youtube video. Please summarize it succinctly into bullet points. include a TL;DR sentence at the very bottom.",history,message.channel)
+                calculateCost()
+                await goldMessage(f"🪙 ${(.004/1000) * totalTokens:.4f} -- 🎟️ Tokens {totalTokens}",message.channel)
+                resetConvoHistory()  # Wiping history for efficiency
+                return
+                
+            elif 'youtu.be' in message.content:
+                try:
+                    vidID = message.content.split('be/')[1]
+                    print(f"Video ID: {vidID}")
+                    transcript = YouTubeTranscriptApi.get_transcript(vidID)
+                except Exception as e:
+                    error_message = str(e)
+                    print(e)
+                    await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}", message.channel)
+                    return
+                justText = ' '.join(line['text'] for line in transcript)
+                await stream_openai_16k_multi(f"YouTube Video Transcript:```{justText}```. You were just provided a transcript of a youtube video. Please summarize it succinctly into bullet points. include a TL;DR sentence at the very bottom.",history,message.channel)
+                calculateCost()
+                await goldMessage(f"🪙 ${(.004/1000) * totalTokens:.4f} -- 🎟️ Tokens {totalTokens}",message.channel)
+                resetConvoHistory()  # Wiping history for efficiency
+                return
+            else :
+                url = message.content.split()[0]
+                await summarize(url, message.channel)            
+                calculateCost()
+                await goldMessage(f"🪙 ${(.004/1000) * totalTokens:.4f} -- 🎟️ Tokens {totalTokens}",message.channel)
+                resetConvoHistory()  # Wiping history for efficiency
+                return
         except Exception as e:
             error_message = str(e)
             print(e)            
-            await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",channel)
+            await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}", message.channel)
             return
     
     #dall e image prompt, 2cents per pic
@@ -1009,15 +1070,7 @@ async def on_message(message):
         resetConvoHistory()
         await yellowMessage("\U0001F40D Snake, at your service. Ask me your Python questions, I'm ready. \U0001F40D",message.channel)
         return
-    # invoke Ringo identity
-    elif '!ringo' in message.content:
-        member=message.guild.me
-        await member.edit(nick='Ringo')
-        identity = ringo
-        resetConvoHistory()
-        await yellowMessage("\U0001F436 Ringo, at your service.\U0001F436",message.channel)
-        return
-    
+     
     # invoke default identity
     elif '!wheatley' in message.content:
         member=message.guild.me
@@ -1049,8 +1102,8 @@ async def on_message(message):
             inputContent = inputContent.decode('utf-8')
             #so inputContent is the message to be openai-ified
             try:
-                bot_message = await message.channel.send(file=discord.File('wheatley-3-blue-30sec.gif'))
-                discordResponse = ask_openai_16k(inputContent,history)
+                bot_message = await yellowMessage("🤔",message.channel)
+                discordResponse = await ask_openai_16k(inputContent,history)
                 await bot_message.delete()
                 with open(outputFile, "w") as responseFile:
                     responseFile.write(discordResponse)
@@ -1109,9 +1162,21 @@ async def on_message(message):
     elif '!gpt4' in message.content:        
         try:
             #sends users question to openai
-            await stream_openai_gpt4(message.content,history,message.channel)
+            await stream_openai_gpt4(message.content[5:],history,message.channel)
             calculateCost()
             await goldMessage(f"🪙 ${(.05/1000) * totalTokens:.4f} -- 🎟️ Tokens {totalTokens}",message.channel)
+        except Exception as e:
+            error_message = str(e)
+            print(e)        
+            await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",message.channel)
+        return
+    #forces use of 16k model
+    elif '!16k' in message.content:
+        try:
+            #sends users question to openai
+            await stream_openai_16k_multi(message.content[4:],history,message.channel)
+            calculateCost()
+            await goldMessage(f"🪙 ${(.004/1000) * totalTokens:.4f} -- 🎟️ Tokens {totalTokens}",message.channel)
         except Exception as e:
             error_message = str(e)
             print(e)        
@@ -1128,9 +1193,12 @@ async def on_message(message):
             !zerocool - Cybersecurity specialist. \n
             Commands:\n
             !thanks - this resets the conversation, as a larger conversation costs more money, just say !thanks when you're done a topic to save money.
-            !search - enter something you want the bot to search google for and comment on, eg !search what will the weather be in peterborough tomorrow?\n
+            !gpt4 - the next thing you say will be processed by GPT4 at much higher cost than default\n
+            !16k - this flag will up the max tokens to 16000 for the next response, just in case you want to have a massive conversation\n
+            !search - enter something you want the bot to search google for and comment on, eg !search what will the weather be in new york tomorrow?\n
             it will create it's own search term, scrape the top 3 websites from a google search, then answer your original question based on the info it finds. VERY useful.\n
-            !summarize - summarizes a link provided (the first 2000 words at least), eg !summarize https://example.com\n
+            Summarize an article or youtube video:\n
+            Simply paste the youtube or article url into chat and hit enter. In the case of youtube it will pull the transcript and summarize it.
             !prompt - describe a picture, and the bot will create a massive prompt to be used in image gen software, or with the !image prompt (2cents per pic!)\n
             !image - using 2cents and dall-e2, describe your image and dall-e will generate it and post it, if you like it save it as it won't stay active for long\n
             !imagine - uses an API to talk to stable diffusion to generate pictures locally for free, you need a gpu and stable diffusion setup already for this, then tie into it with it's IP address\n
@@ -1151,6 +1219,40 @@ async def on_message(message):
     #prints to terminal only - for debugging purposes
     #Streaming by default
     
+    """
+    try:
+        #searchOrNot = await ask_openai(f"You were just asked ```{message.content}```. If you are even 1% confident answering this question, reply with only the letter 'y'. Otherwise reply with only 'n'. DO NOT USE EMOJIS, SIMPLY ANSWER 'n' or 'y' ONLY",history)
+        searchOrNot = await ask_openai(f"You are in a conversation and you just recieved the message ```{message.content}```. Reply only with the letter 'y'. You have the option to reply with 'n' but ONLY if the the message is a question about a topic you know literally nothing about. Do not say 'n' lightly as it's expensive. DO NOT USE EMOJIS, SIMPLY ANSWER 'n' or 'y' ONLY",history)
+        answer = searchOrNot.lower()
+        if answer == "y": # confident without a search, will ask chatgpt directly
+            #sends users question to openai
+            await stream_openai_16k_multi(message.content,history,message.channel)
+            calculateCost()
+            await goldMessage(costing,message.channel)
+        elif answer == "n": # not confident and would like to do a google search
+            #resetConvoHistory()
+            channel = message.channel
+            await deepGoogle(message.content,channel)
+            #await yellowMessage(f"Searched for: {cleanedBotSearchGen}",message.channel) #this is done in the function now
+            #await blueMessage(f"{searchReply}",message.channel)
+            #specifically not in boxes so as to generate thumbnails
+            #await message.channel.send(f"{url1} \n{url2} \n{url3}")
+            #removing thumbnails for cleaner interface
+            calculateCost()
+            await goldMessage(costing,message.channel)
+            #search uses so many tokens now, replying would create an error so immediately wiping history after a search to save time typing !thanks
+            #resetConvoHistory() 
+            return
+        else:
+            await redMessage(f"that didn't work, I accidentally said: {answer}",message.channel)
+        return
+    except Exception as e:
+        error_message = str(e)
+        print(e)        
+        await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",message.channel)
+        return
+    """
+
     try:
         #sends users question to openai
         await stream_openai_multi(message.content,history,message.channel)
