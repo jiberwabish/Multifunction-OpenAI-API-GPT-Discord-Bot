@@ -6,3 +6,7 @@ discord
 beautifulsoup4
 google-api-python-client
 Pillow
+sseclient
+better_profanity
+youtube_transcript_api
+apscheduler
