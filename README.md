@@ -63,8 +63,9 @@ Personas:
 Commands:
 
 - !thanks - this resets the conversation, as a larger conversation costs more money, just say !thanks when you're done a topic to wipe conversation history and save money.
-- !search - enter something you want the bot to search google for and comment on, eg '!search what will the weather be in chicago tomorrow?' it will create it's own search term, scrape the top 3 websites from a google search, then answer your original question based on the info it finds. VERY useful.
-- !summarize - summarizes a link provided (the first 2000 words at least), eg !summarize https://example.com/
+- !search - UPDATED search now creates 3 different search terms, and scrapes 3 results per search. Uses a lot more tokens but gets a lot more infomation. Reply by using the !16k flag to ensure you have enough tokens to
+- !1search - enter something you want the bot to search google for and comment on, eg '!search what will the weather be in chicago tomorrow?' it will create it's own search term, scrape the top 3 websites from a google search, then answer your original question based on the info it finds. VERY useful.
+- drop an article or youtube link into chat - summarizes the article or youtube video -- Reply by using the !16k flag to ensure you have enough tokens to
 - !prompt - describe a picture, and the bot will create a massive prompt to be used in image gen software, or with the !image prompt (2cents per pic!)
 - !image - using 2cents and dall-e2, describe your image and dall-e will generate it and post it, if you like it save it as it won't stay active for long
 - !imagine - uses an API to talk to stable diffusion to generate pictures locally for free, you need a gpu and stable diffusion setup already for this, then tie into it with it's IP address
