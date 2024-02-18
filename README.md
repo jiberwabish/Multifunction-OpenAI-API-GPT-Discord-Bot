@@ -25,7 +25,7 @@ I have a persona for Wheatly but you are free to easily just change the variable
 
 - free Google API Search key and engine ID code - optional but highly recommended to use the !search feature, 
 - get your engine code here, click 'add' and follow the process: https://support.google.com/programmable-search/answer/12499034?hl=en-GB&ref_topic=4513743
-- Google Api Key : https://developers.google.com/webmaster-tools/search-console-api/v1/configure
+- Google Api Key : [https://developers.google.com/webmaster-tools/search-console-api/v1/configure](https://support.google.com/googleapi/answer/6158862?hl=en#:~:text=To%20create%20your%20application%27s%20API%20key%3A%201%20Go,Click%20Create%20credentials%20and%20then%20select%20API%20key.)
 - OpenAI API key - get an account from beta.openai.com/playground ensure billing is setup to increase your rate limits, generate an api key in settings
 - python 3.10 at least
 - then once python is installed, run pip install -r requirements.txt to install all the libraries needed
