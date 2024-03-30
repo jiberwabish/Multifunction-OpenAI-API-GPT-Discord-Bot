@@ -15,10 +15,8 @@ I have a persona for Wheatly but you are free to easily just change the variable
 
 ## github file explanation
 
-- glados.py - Discord bot configured for GPT4. You can manually edit Wheatley which is GPT3.5 to be gpt4 by uncommenting out a line in his code, but I find it easier to just make 2 separate bots and have separate channels for them in Discord.
-- wheatley-3-blue-30sec.gif - used as a loading bar, just have it in the same folder you run the bots from
-- wheatleyDiscord.py - the main bot, gpt3.5, lots of functions, !help once he's up explains them all
-- wheatleyTerminal.py - if you wanted to run from terminal instead of Discord for whatever reason
+- wheatleyDiscord.py - the main bot, gpt3.5, 4, lm-studio (if you have that setup), lots of functions, !help once he's up explains them all
+- OpenAI-API-Terminal.py - if you wanted to run from terminal instead of Discord -- much simpler -- see comments in code for requirements
 - requirements.txt - list of librarys, can be installed once you have python up and running with pip install -r requirements.txt
 
 ## Requirements
@@ -52,13 +50,13 @@ The following functions are currently available:
 
 - Simply send a message and press enter and wait for a response. No need to @ the bot, or start a thread or anything.
 
-There are many commands as well:
+There are many commands as well.
+
+By default, it looks for intent in the message. If you ask for a search, it searches first (google api needed). If you ask for a picture it will make them (you need your own comfyui for this).
 
 Personas:
 
 - !wheatley - Default persona. Knows all.
-- !snake - Specializes in Python questions.
-- !zerocool - Cybersecurity specialist.
 
 Commands:
 
@@ -83,19 +81,13 @@ These are specific to my Ubuntu box, probably won't work without editting for yo
 - !network - scans your network that the bot is on (requires nmap installed) and reports on IPs of hosts that are up. Maybe don't do this unless it's on your home network..
 - !cpu - reports on CPU usage percent, followed by temps. hardcoded to 4 cores as that's all my server has - no use, just fun
 
-Time Triggered events:
-- by default you will get a morning message and weather report at 745am (just change this in the code if it's unwanted) (IF you have the google api key filled out)
-- a reminder to do your physio at 7pm ;)
-- cybersecurity news roundup at 9am
-- These are just placeholders, change them to things that work for you or delete/comment them out
-
 ## Getting Started
 
 This is not a public bot. You are to copy the code and input your own API keys and pull it into a private discord server.
 
 Once you have invited your version of Wheatley to your server, you can start using commands mentioned above, or just talk to it.
 
-By default, the bot is named Wheatley with the same identity. However, you are free to change his identity by creating a new persona (just copy the formatting of Wheatley or Snake, and then set identity to that instead.
+By default, the bot is named Wheatley with the same identity. However, you are free to change his identity by creating a new persona (just copy the formatting of Wheatley or Snake, and then set identity to that instead.)
 
 ## Usage
 
