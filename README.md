@@ -1,5 +1,10 @@
 # Wheatley Discord Bot (ChatGPT backed OpenAI API bot to be precise, gpt3.5, 4, lm-studio, gemini)
 
+# WARNING -- this has gotten far too complicated and customised to my own needs
+# To really use it without issue, you need your own comfyui server setup and google api and search engine setup at a minimum
+
+I don't actually expect anyone to use this anymore, I just keep it for historical purposes.
+
 Welcome to the Wheatley Discord Bot! This bot is designed to provide you and your server with informative results from the web within the comfort of the Discord interface. With Wheatley, you can search Google, generate images based on your prompt, and so much more!
 
 Bring ChatGPT with you everywhere, and when others complain that the website is down, you can say 'yea well MY chatgpt still works' while you bust open discord and get answers in no time.
