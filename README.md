@@ -1,4 +1,4 @@
-# Wheatley Discord Bot (ChatGPT backed OpenAI API bot to be precise, gpt3.5)
+# Wheatley Discord Bot (ChatGPT backed OpenAI API bot to be precise, gpt3.5, 4, lm-studio, gemini)
 
 Welcome to the Wheatley Discord Bot! This bot is designed to provide you and your server with informative results from the web within the comfort of the Discord interface. With Wheatley, you can search Google, generate images based on your prompt, and so much more!
 
