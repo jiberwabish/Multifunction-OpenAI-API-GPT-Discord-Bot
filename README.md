@@ -1,5 +1,11 @@
 # Wheatley Discord Bot (ChatGPT backed OpenAI API bot to be precise, gpt3.5)
 
+### WARNING
+This bot has gotten so cumbersome that I not longer believe it's feasible for someone else to use it. It's so customized to my lm-studio instance, and comfyui environment.
+It's still publically available but more as just a historic piece than someone someone would want to adapt and run.
+
+## What is this?
+
 Welcome to the Wheatley Discord Bot! This bot is designed to provide you and your server with informative results from the web within the comfort of the Discord interface. With Wheatley, you can search Google, generate images based on your prompt, and so much more!
 
 Bring ChatGPT with you everywhere, and when others complain that the website is down, you can say 'yea well MY chatgpt still works' while you bust open discord and get answers in no time.
@@ -16,7 +22,6 @@ I have a persona for Wheatly but you are free to easily just change the variable
 ## github file explanation
 
 - wheatleyDiscord.py - the main bot, gpt3.5, 4, lm-studio (if you have that setup), lots of functions, !help once he's up explains them all
-- OpenAI-API-Terminal.py - if you wanted to run from terminal instead of Discord -- much simpler -- see comments in code for requirements
 - requirements.txt - list of librarys, can be installed once you have python up and running with pip install -r requirements.txt
 
 ## Requirements

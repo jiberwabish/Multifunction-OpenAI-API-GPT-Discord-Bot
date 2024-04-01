@@ -1,16 +1,10 @@
 # host on your own computer and private server and connect to your Discord bot with your Token
 # fill in your own keys etc just below the imports
-# Jiberwabish 2024
-# NOTE
-# I use comfyui for images and google searches etc.. you can choose to just chat if you wish
-# if you want to use google you need your own search engine id and api key
-# if you want to run comfyui, that's a whole other process to have running first, then you
-# connect to it via your IP address here in this code in place of mine
-# also, gemini also requires you to set that up in your google apis, however if you're in canada, it won't work yet...
-# I also use LM-Studio in server mode to chat locally, if you want to do that too, ctrl f for "async def setModeLLM():" then enter your servers ip
+# Jiberwabish 2023
 
 #so many libraries to import
 import openai
+from openai import OpenAI
 import os
 import tiktoken
 import requests
@@ -46,20 +40,23 @@ import urllib.parse    # For URL encoding
 import google.generativeai as genai #gemini
 from dotenv import load_dotenv
 
+
 # Initialize the scheduler
 scheduler = AsyncIOScheduler()
-
 
 # Timezone
 time_zone = timezone('America/Toronto')
 
 #set api keys and other variabls
-openaikeyhardcoded = 'fill this in'
-openai.api_key = openaikeyhardcoded
+aiclient = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+
 discordBotToken = 'fill this in'
-googleApiKey = "fill this in"
-googleEngineID = "fill this in"
-location = "fill this in"
+googleApiKey1 = "fill this in" #main
+googleApiKey1Count = 0
+googleApiKey = googleApiKey1
+googleEngineID1 = "b48770d9232164d53"
+googleEngineID = googleEngineID1
+location = "Encino California"
 
 #configure Gemini
 genai.configure(api_key=googleApiKey)
@@ -82,6 +79,7 @@ text_model = genai.GenerativeModel(model_name="gemini-pro", generation_config=te
 #model temperature, 0 is more precise answers, 1 is more creative, and you can use decimals
 modelTemp = float(0.7)
 model = "gpt-3.5-turbo-0125"
+lmStudioModel = "dagbs/dolphin-2.8-mistral-7b-v02-GGUF/dolphin-2.8-mistral-7b-v02.Q4_K_M.gguf"
 #default comfy dimensions
 w = 1024
 h = 1024
@@ -129,7 +127,7 @@ def setSystemPrompt():
     time = now.strftime("%H:%M:%S")
     fullDate = str(year) + " " + str(month) + " " + str(dayOfMo) + " " + str(day) + " " + str(time)
     #user_date_obj = {"role": "system", "content": f"The Current Date is:{fullDate} Location is: {location}"}
-    wheatley = {"role": "system", "content": f"Date: {fullDate} Location: {location}. You: You are a helpful and empathetic chat bot named Wheatley. I am your friend. Please respond to my message as effectively as you can. Use emoji's in your response. Use codeblocks only when returning code and use Markdown format to improve readability of your responses."}
+    wheatley = {"role": "system", "content": f"Date: {fullDate} Location: {location}. You: You are a helpful and empathetic chat bot named Wheatley. I am your friend Steve. Please respond to my message as effectively as you can. Use emoji's in your response. Use codeblocks only when returning code and use Markdown format to improve readability of your responses."}
     #history.append(user_date_obj)
     #system_response_obj = identity        
     history.append(wheatley)
@@ -151,20 +149,17 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0301"):
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
         encoding = tiktoken.get_encoding("cl100k_base")
-    if model == "gpt-3.5-turbo-0301":  # note: future models may deviate from this
-        number_tokens = 0
-        for message in messages:
-            number_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
-            for key, value in message.items():
-                number_tokens += len(encoding.encode(value))
-                if key == "name":  # if there's a name, the role is omitted
-                    number_tokens += -1  # role is always required and always 1 token
-        number_tokens += 2  # every reply is primed with <im_start>assistant
-        return number_tokens
-    else:
-        raise NotImplementedError(f"""num_tokens_from_messages() is not presently implemented for model {model}.
-See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens.""")
-
+    
+    number_tokens = 0
+    for message in messages:
+        number_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
+        for key, value in message.items():
+            number_tokens += len(encoding.encode(value))
+            if key == "name":  # if there's a name, the role is omitted
+                number_tokens += -1  # role is always required and always 1 token
+    number_tokens += 2  # every reply is primed with <im_start>assistant
+    return number_tokens
+    
 #tokenizer costing function
 def calculateCost():
     global totalCost
@@ -173,13 +168,13 @@ def calculateCost():
     global prompt_token_count
     #calculate cost
     if (model == "gpt-3.5-turbo-0125"):
-        cost_per_token = 0.0015 / 1000  
+        cost_per_token = 0.0015 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
     elif (model == "gpt-4-0125-preview"):
-        cost_per_token = 0.003 / 1000  
-    elif (model == "Local LLM" or model == "Gemini"):
-        cost_per_token = 0 / 1000  
+        cost_per_token = 0.003 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
+    elif (model == lmStudioModel or model == "Gemini"):
+        cost_per_token = 0 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
     elif (model == "open-mixtral-8x7b"):
-        cost_per_token = 0.0007 / 1000  
+        cost_per_token = 0.0007 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
     totalTokens = num_tokens_from_messages(history) - 4
     totalCost = totalTokens * cost_per_token
     global costing
@@ -201,6 +196,7 @@ async def ask_openai(prompt, history):
     global prompt_token_count
     global model_max_tokens
     global model
+    global aiclient
     # Generate user resp obj
     #system_response_obj = identity
     user_response_obj = {"role": "user", "content": prompt}
@@ -210,14 +206,11 @@ async def ask_openai(prompt, history):
     
     prompt_token_count = num_tokens_from_messages(history)
     # Fire that dirty bastard into the abyss -NR
-    response = openai.ChatCompletion.create(
-        #model='gpt-4', messages=history, temperature=1, request_timeout=240, """max_tokens = model_max_tokens - prompt_token_count""")
-        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, """max_tokens = model_max_tokens - prompt_token_count""")
-        model=model, messages=history, temperature=modelTemp, request_timeout=240)
-    #history.append(response['choices'][0].message)
-    history.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
+    #aiclient = OpenAI()
+    response = aiclient.chat.completions.create(model=model, messages=history, temperature=modelTemp, stream=False)
+    history.append({"role": "assistant", "content": response.choices[0].message.content})
     print(response)
-    return response['choices'][0].message.content.strip()
+    return str(response.choices[0].message.content)
 
 async def ask_openai_intent(prompt, history):
     global num_tokens
@@ -225,23 +218,20 @@ async def ask_openai_intent(prompt, history):
     global model_max_tokens
     global model
     global intentHistory
+    global aiclient
     # Generate user resp obj
     #system_response_obj = identity
     user_response_obj = {"role": "user", "content": prompt}
     #system_response_obj = identity        
     #history.append(system_response_obj)
     intentHistory.append(user_response_obj)
-    
     #prompt_token_count = num_tokens_from_messages(intentHistory)
     # Fire that dirty bastard into the abyss -NR
-    response = openai.ChatCompletion.create(
-        #model='gpt-4', messages=history, temperature=1, request_timeout=240, """max_tokens = model_max_tokens - prompt_token_count""")
-        #model='gpt-4-32k', messages=history, temperature=1, request_timeout=512, """max_tokens = model_max_tokens - prompt_token_count""")
-        model=model, messages=intentHistory, temperature=modelTemp, request_timeout=240)
-    #history.append(response['choices'][0].message)
-    intentHistory.append({"role": "assistant", "content": response['choices'][0]['message']['content']})
-    print(response)
-    return response['choices'][0].message.content.strip()
+    #aiclient = OpenAI()
+    response = aiclient.chat.completions.create(model=model, messages=intentHistory, temperature=modelTemp, stream=False)
+    intentHistory.append({"role": "assistant", "content": response.choices[0].message.content})
+    print(f"Response from OpenAI: {response.choices[0].message.content}")
+    return str(response.choices[0].message.content)
 
 # streams AND will add a second message if nearing discord character limit per message
 # but no support for a third message at this point
@@ -250,8 +240,10 @@ async def stream_openai_multi(prompt, history, channel):
     global prompt_token_count
     global model
     global model_max_tokens
+    global aiclient
     newMessage = 0
     fullMessage = ""
+    full_reply_content = ""
     second_reply_content = ""
     collected_messages = []
     # Generate user resp obj
@@ -265,193 +257,55 @@ async def stream_openai_multi(prompt, history, channel):
     #send the first message that will continually be editted
     if (model == "gpt-3.5-turbo-0125"):
         streamedMessage = await channel.send("🤔")   
-    elif (model == "Local LLM"):
+    elif (model == lmStudioModel):
         streamedMessage = await channel.send("💭")
     elif (model == "gpt-4-0125-preview"):
         streamedMessage = await channel.send("🧠")
+
+    #aiclient = OpenAI()
+    response = aiclient.chat.completions.create(model=model, messages=history, temperature=modelTemp, stream=True)
+
+    collected_messages = []
+    second_collected_messages = []
+    counter = 0
+    current_message = ''
+    #as long as there are messages comnig back from openai, do the for loop
     
-    response = openai.ChatCompletion.create(
-        model=model, messages=history, stream=True, temperature=modelTemp, request_timeout=240)
-
-    collected_messages = []
-    second_collected_messages = []
-    counter = 0
-    current_message = ''
-    #as long as there are messages comnig back from openai, do the for loop
-    for chunk in response:
-        chunk_message = chunk['choices'][0]['delta']
-        if 'content' in chunk_message:
-            content = chunk_message['content']
-            if newMessage == 0: # as long as we're still in the first message under 1800characters, do this
-                collected_messages.append(content)
-                full_reply_content = ''.join(collected_messages)
-                fullMessage = full_reply_content
-            else: # we must be in the second message now so start adding chunks to the second message vars instead
-                second_collected_messages.append(content)
-                second_reply_content = ''.join(second_collected_messages)
-            counter += 1 # used to slow down how often chunks are actually printed/edited to discord
+    for data in response:
+        for choice in data.choices:
+            if choice.delta and choice.delta.content:
+                content = choice.delta.content
+                if content:
+                    if newMessage == 0:
+                        collected_messages.append(content)
+                        full_reply_content = ''.join(collected_messages)
+                        fullMessage = full_reply_content
+                        counter += 1 # used to slow down how often chunks are actually printed/edited to discord
+                    else: # we must be in the second message now so start adding chunks to the second message vars instead
+                        second_collected_messages.append(content)
+                        second_reply_content = ''.join(second_collected_messages)
+                        counter += 1 # used to slow down how often chunks are actually printed/edited to discord
             
-            if counter % 30 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
-                if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
-                    if newMessage == 0: # if this is the first time it's been over...
-                        await streamedMessage.edit(content=fullMessage) # complete the first message 
-                        streamedMessage2 = await channel.send("...")  # create a blank message for the second message to stream into
-                        newMessage = 1 # set the flag saying we're not onto the second message
-                    else: # we must now be into the second message going forward now
-                        await streamedMessage2.edit(content=second_reply_content) # update second message with the latest chunk
-                    
-                else: # we are still in the first message so update first message normally
-                    await streamedMessage.edit(content=full_reply_content)
-                    # print(len(fullMessage)) # debug so I can watch when it's about to flip over
+                if counter % 30 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
+                    if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
+                        if newMessage == 0: # if this is the first time it's been over...
+                            await streamedMessage.edit(content=fullMessage) # complete the first message 
+                            streamedMessage2 = await channel.send("...")  # create a blank message for the second message to stream into
+                            newMessage = 1 # set the flag saying we're not onto the second message
+                        else: # we must now be into the second message going forward now
+                            await streamedMessage2.edit(content=second_reply_content) # update second message with the latest chunk
+                        
+                    else: # we are still in the first message so update first message normally
+                        await streamedMessage.edit(content=full_reply_content)
+                        # print(len(fullMessage)) # debug so I can watch when it's about to flip over
     if newMessage == 1: # at the very end of the loop, IF there was a second message, fully update it here
         await streamedMessage2.edit(content=second_reply_content)
     else: # second message wasn't needed, so make sure to add the last chunks to the first and only message
-        await streamedMessage.edit(content=fullMessage)
-  
+        await streamedMessage.edit(content=fullMessage)     
     combinedMessage = fullMessage + " " + second_reply_content# full reply content (first message) + second reply content, appended to eachother to keep our history variable in line
     history.append({"role": "assistant", "content": combinedMessage}) # add full message to history, whether there was one or two messages used
     newMessage = 0 # reset new message variable for next time
-    return combinedMessage
-
-async def stream_openai_multi_3x(prompt, history, channel):
-    global num_tokens
-    global prompt_token_count
-    global model
-    global model_max_tokens
-    newMessage = 0
-    fullMessage = ""
-    second_reply_content = ""
-    third_reply_content = ""
-    collected_messages = []
-    # Generate user resp obj
-    # system_response_obj = identity
-    user_response_obj = {"role": "user", "content": prompt}
-    #update history
-    #history.append(system_response_obj)
-    history.append(user_response_obj)
-
-    prompt_token_count = num_tokens_from_messages(history)
-    #send the first message that will continually be editted -- also works as a static loading bar of sorts
-    streamedMessage = await channel.send("🤔")
-    #call openai, specifying that you want a stream back and not just the message when it's ready
-    response = openai.ChatCompletion.create(
-        model=model, messages=history, stream=True, temperature=modelTemp, request_timeout=240)
-
-    #initialize arrays needed for collecting stream
-    collected_messages = []
-    second_collected_messages = []
-    third_collected_messages = []
-    counter = 0
-    current_message = ''
-    #as long as there are messages coming back from openai, do the for loop
-    for chunk in response:
-        chunk_message = chunk['choices'][0]['delta']
-        if 'content' in chunk_message: #if there is still a message streaming through, then...
-            content = chunk_message['content']
-            if newMessage == 0: # as long as we're still in the first message under 1800characters, do this
-                collected_messages.append(content)
-                full_reply_content = ''.join(collected_messages)
-                fullMessage = full_reply_content
-            if newMessage == 1:# we must be in the second message now so start adding chunks to the second message vars instead 
-                second_collected_messages.append(content)
-                second_reply_content = ''.join(second_collected_messages)
-            else: #we must be into our third message so start adding chunks to those variables instead
-                third_collected_messages.append(content)
-                third_reply_content = ''.join(third_collected_messages)
-            counter += 1 # used to slow down how often chunks are actually printed/edited to discord
-            
-            if counter % 30 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
-                if len(fullMessage) >= 100: #1800 is default  # Check if message length is close to the Discord limit
-                    if newMessage == 0: # if this is the first time it's been over...
-                        await streamedMessage.edit(content=fullMessage) # complete the first message 
-                        streamedMessage2 = await channel.send("...")  # create a blank message for the second message to stream into
-                        newMessage = 1 # set the flag saying we're not onto the second message
-                    elif newMessage == 1 and len(fullMessage) >=400: #2800 is default #so we're into the second message but nearing the end, we need to enter the third.
-                        await streamedMessage2.edit(content=second_reply_content)#finish off the second message
-                        streamedMessage3 = await channel.sent("...") # create a blank third message
-                        newMessage = 2 #set the flag that we're now into the third message
-                    elif newMessage == 1:# we must now be into the second message going forward now
-                        await streamedMessage2.edit(content=second_reply_content) # update second message with the latest chunk
-                    elif newMessage == 2: #into our third message
-                        await streamedMessage3.edit(content=third_reply_content)
-                    
-                else: # we are still in the first message so update first message normally
-                    await streamedMessage.edit(content=full_reply_content)
-                    # print(len(fullMessage)) # debug so I can watch when it's about to flip over
-    #at this point stream is no longer coming in, update the last message, whether it's the first, second or third, then we're done.
-    if newMessage == 1: # at the very end of the loop, IF there was a second message, fully update it here
-        await streamedMessage2.edit(content=second_reply_content)
-    elif newMessage == 2:
-        await streamedMessage3.edit(content=third_reply_content)
-    else: # second message wasn't needed, so make sure to add the last chunks to the first and only message
-        await streamedMessage.edit(content=fullMessage)
-  
-    combinedMessage = fullMessage + " " + second_reply_content# full reply content (first message) + second reply content, appended to eachother to keep our history variable in line
-    history.append({"role": "assistant", "content": combinedMessage}) # add full message to history, whether there was one or two messages used
-    newMessage = 0 # reset new message variable for next time
-    return combinedMessage
-
-# multi message 16k token streaming
-async def stream_openai_16k_multi(prompt, history, channel):
-    global num_tokens
-    global prompt_token_count
-    global model
-    global model_max_tokens
-    newMessage = 0
-    fullMessage = ""
-    second_reply_content = ""
-    collected_messages = []
-    # Generate user resp obj
-    # system_response_obj = identity
-    user_response_obj = {"role": "user", "content": prompt}
-
-    #history.append(system_response_obj)
-    history.append(user_response_obj)
-
-    prompt_token_count = num_tokens_from_messages(history)
-    #send the first message that will continually be editted
-    streamedMessage = await channel.send("🤔")
-    response = openai.ChatCompletion.create(
-        model=model, messages=history, stream=True, temperature=modelTemp, request_timeout=240)
-
-    collected_messages = []
-    second_collected_messages = []
-    counter = 0
-    current_message = ''
-    #as long as there are messages comnig back from openai, do the for loop
-    for chunk in response:
-        chunk_message = chunk['choices'][0]['delta']
-        if 'content' in chunk_message:
-            content = chunk_message['content']
-            if newMessage == 0: # as long as we're still in the first message under 1800characters, do this
-                collected_messages.append(content)
-                full_reply_content = ''.join(collected_messages)
-                fullMessage = full_reply_content
-            else: # we must be in the second message now so start adding chunks to the second message vars instead
-                second_collected_messages.append(content)
-                second_reply_content = ''.join(second_collected_messages)
-            counter += 1 # used to slow down how often chunks are actually printed/edited to discord
-            
-            if counter % 30 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
-                if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
-                    if newMessage == 0: # if this is the first time it's been over...
-                        await streamedMessage.edit(content=fullMessage) # complete the first message 
-                        streamedMessage2 = await channel.send("...")  # create a blank message for the second message to stream into
-                        newMessage = 1 # set the flag saying we're not onto the second message
-                    else: # we must now be into the second message going forward now
-                        await streamedMessage2.edit(content=second_reply_content) # update second message with the latest chunk
-                    
-                else: # we are still in the first message so update first message normally
-                    await streamedMessage.edit(content=full_reply_content)
-                    # print(len(fullMessage)) # debug so I can watch when it's about to flip over
-    if newMessage == 1: # at the very end of the loop, IF there was a second message, fully update it here
-        await streamedMessage2.edit(content=second_reply_content)
-    else: # second message wasn't needed, so make sure to add the last chunks to the first and only message
-        await streamedMessage.edit(content=fullMessage)
-  
-    combinedMessage = fullMessage + " " + second_reply_content# full reply content (first message) + second reply content, appended to eachother to keep our history variable in line
-    history.append({"role": "assistant", "content": combinedMessage}) # add full message to history, whether there was one or two messages used
-    newMessage = 0 # reset new message variable for next time
+    print("got to end of stream function")
     return combinedMessage
 
 #function used for scraping websites, used with the !search command
@@ -478,7 +332,8 @@ def get_first_500_words(url, numWords):
         soup = BeautifulSoup(response.text, 'html.parser')
 
         # Step 1: Initial Scrubbing
-        tags_to_scrape = ['p', 'article', 'main']
+        tags_to_scrape = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'div', 'span', 'article', 'section', 'meta']
+
         scraped_text = []
 
         for tag in tags_to_scrape:
@@ -677,10 +532,6 @@ async def silentMultiGoogle(search1, search2, search3, question, channel):
     #google search1
     # program in api switcher here
 
-
-
-
-    
     service = build("customsearch", "v1", developerKey=googleApiKey)
     allURLs=[]
     scrapeMessage = await tealMessage("Researching...🔍🌎📄",channel)
@@ -2047,16 +1898,14 @@ async def promptCreation(prompt,channel):
 # set wheatleys mode to Local LLM, 3.5 or 4
 async def setModeLLM():
     if is_port_listening("192.168.64.123","1234") == True: # check for running lm-studio
-        openai.api_base = "http://192.168.64.123:1234/v1"
+        global aiclient
+        aiclient = OpenAI(base_url="http://192.168.64.123:1234/v1", api_key="lm-studio")
         global model_max_tokens
         model_max_tokens = 16000
         global model
-        model = "Local LLM"
+        model = lmStudioModel
         system_response_obj = identity        
         history.append(system_response_obj)
-        # openai.api_key = "sx-xxx"
-        # OPENAI_API_KEY = "sx-xxx"
-        # os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY
         channel = await client.fetch_channel(1079243349237698633)
         await pinkMessage("GPU powered Local LLM - Activated",channel)
     else: #lm studio isn't running
@@ -2064,8 +1913,8 @@ async def setModeLLM():
         await redMessage("Apologies. Local Language Model is not currently available.",channel)
 
 async def setModeGPT35():
-    openai.api_base = "https://api.openai.com/v1"
-    openai.api_key = openaikeyhardcoded
+    global aiclient
+    aiclient = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
     global model_max_tokens
     model_max_tokens = 4096
     global model
@@ -2076,8 +1925,8 @@ async def setModeGPT35():
     await blueMessage("Open AI GPT 3.5 Turbo Model - Activated",channel)
 
 async def setModeGPT4():
-    openai.api_base = "https://api.openai.com/v1"
-    openai.api_key = openaikeyhardcoded
+    global aiclient
+    aiclient = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
     global model_max_tokens
     model_max_tokens = 16000
     global model
@@ -2125,75 +1974,9 @@ async def on_ready():
     #greeting!
     await redMessage("Good day to you. If you want to see what I can do, just type !help\n",main_channel_id_object)
     
-    #defs to remind me of things
-    async def remind_exercises():
-        channel = await client.fetch_channel(main_channel_id)
-        await purpleMessage("🏋️‍♀️ It is imperative that you perform the following exercises as part of your physio regimen:\n- 🧱 Wall stretch: 20 reps in total\n- 🪑 Chair push-ups: 20 reps in total\n- 💪 15 rows with 10 tricep extensions per arm\n- 🙆‍♂️ 20 shrugs\n- 🔙 Corner stretch",channel)
-
-    async def daily_weather(): 
-        global modelTemp
-        global model
-        resetConvoHistory()
-        channel = await client.fetch_channel(main_channel_id)
-        #modelTemp = 1
-        formerModel = model
-        await setModeGPT35()
-        positiveMessage = await ask_openai("It's the morning, please provide me with a VERY brief, positive message to start my day with. Include emoji's and an inspirational quote.",history)                
-        await purpleMessage(positiveMessage,channel)
-        resetConvoHistory()
-        #searchReply = await deepGoogle(f"What is the weather forecast for {location} today? VERY BRIEFLY note the current temp, the high and low for the day and anything else of note.",channel)
-        searchTerms = await ask_openai(f"Come up with 3 different web searches that you think would help you gather todays weather for Peterborough Ontario Canada. Reply with ONLY the search terms, prepended by 1., 2. then 3. Do not use emojis or explain them.",history)
-        #strip quotes
-        searchTerms = searchTerms.replace('"', '')
-        #await yellowMessage(f"Searching:\n{searchTerms}.",channel)
-        #split the search terms into three separate variables
-        splitSearch=searchTerms.split("\n")
-        search1=splitSearch[0]
-        search2=splitSearch[1]
-        search3=splitSearch[2]
-        await silentMultiGoogle(search1, search2, search3, "Describe for me the weather for today, using the data above, in Markdown and emoji's. Make sure to mention current, low and high temps, UV, weather it will be sunny or otherwise as well as what I can expect throughout the day.", channel)
-        #print a pic depicting the weather
-        weatherPicPrompt = await ask_openai("You just told me the weather, now describe an outdoor scene depicting that weather. Reply with ONLY the description and nothing more",history)
-        print(weatherPicPrompt)
-        await comfyRefined(weatherPicPrompt,1,channel,w,h)
-        #await comfy(weatherPicPrompt,channel,"sd_xl_base_1.0.safetensors",w,h,1)
-        resetConvoHistory()
-        #modelTemp = 0
-        if (formerModel == "gpt-3.5-turbo-0125"):
-            return   
-        elif (formerModel == "Local LLM"):
-            await setModeLLM()
-            return
-        elif (formerModel == "gpt-4-0125-preview"):
-            await setModeGPT4()
-            return
-
-    async def gratitudes():
-        resetConvoHistory()
-        channel = await client.fetch_channel(main_channel_id)
-        await purpleMessage("🌸What are your three gratitudes for the day?🌿",channel)
-        gratitudes = {"role": "user", "content": f"You just asked ```What are your three gratitudes for the day?```. I am just about to tell you what mine are. Give me some reassuring message about my three options but keep your response to a single sentence."}
-        history.append(gratitudes)
-        print(history)
-        await asyncio.sleep(14400)
-    
-    async def resetGoogleApis():
-        global googleApiKey1, googleApiKey2
-        googleApiKey1Count = 0
-        googleApiKey2Count = 0
-
-    # Start the scheduler
-    scheduler.start()
-    scheduler.add_job(remind_exercises, 'cron', hour=19, minute=0, timezone=time_zone)
-    scheduler.add_job(daily_weather, 'cron', hour=7, minute=30, timezone=time_zone)
-    scheduler.add_job(gratitudes, 'cron', hour=21, minute=30, timezone=time_zone)
-    scheduler.add_job(resetGoogleApis, 'cron', hour=00, minute=00, timezone=time_zone)
-
     # set 3.5turbo as default
     await setModeGPT35()
     
-
-
 @client.event
 async def on_message(message):
     global identity
@@ -2718,7 +2501,7 @@ async def on_message(message):
 
     #Streaming by default - with intent
     try:            
-        if (model != "Gemini" and model != "open-mixtral-8x7b"): #took out local to test    model != "Local LLM" and 
+        if (model != "Gemini" and model != "open-mixtral-8x7b"): #took out local to test    model != lmStudioModel and 
             #add user message to history so that main memory has access to it
             #history.append(user_response_obj)
             #ask the non-history keeping openai to discern intent
@@ -2801,7 +2584,7 @@ async def on_message(message):
             else:
                 await blurpleMessage(intent,message.channel)
                 return
-        elif(model=="Local LLM"):
+        elif(model==lmStudioModel):
             #sends users question to openai
             await stream_openai_multi(message.content,history,message.channel)
             calculateCost()
