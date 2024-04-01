@@ -1,13 +1,10 @@
 # Wheatley Discord Bot (ChatGPT backed OpenAI API bot to be precise, gpt3.5, 4, lm-studio, gemini)
 
 # WARNING -- this has gotten far too complicated and customised to my own needs
-## To really use it without issue, you need your own comfyui server setup and google api and search engine setup at a minimum
+To really use it without issue, you need your own comfyui server setup and google api and search engine setup at a minimum
 
-## I don't actually expect anyone to use this anymore, I just keep it for historical purposes.
+I don't actually expect anyone to use this anymore, I just keep it for historical purposes.
 
-### WARNING
-This bot has gotten so cumbersome that I not longer believe it's feasible for someone else to use it. It's so customized to my lm-studio instance, and comfyui environment.
-It's still publically available but more as just a historic piece than someone someone would want to adapt and run.
 
 ## What is this?
 
