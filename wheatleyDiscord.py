@@ -1,6 +1,6 @@
 # host on your own computer and private server and connect to your Discord bot with your Token
 # fill in your own keys etc just below the imports
-# Jiberwabish 2023
+# Jiberwabish 2024
 
 #so many libraries to import
 import openai
