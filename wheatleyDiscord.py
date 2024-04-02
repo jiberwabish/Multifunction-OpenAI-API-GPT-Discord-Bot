@@ -54,7 +54,7 @@ discordBotToken = 'fill this in'
 googleApiKey1 = "fill this in" #main
 googleApiKey1Count = 0
 googleApiKey = googleApiKey1
-googleEngineID1 = "b48770d9232164d53"
+googleEngineID1 = ""
 googleEngineID = googleEngineID1
 location = "Encino California"
 
