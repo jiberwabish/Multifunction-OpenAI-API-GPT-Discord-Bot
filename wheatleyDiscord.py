@@ -179,8 +179,7 @@ def setSystemPrompt():
     wheatley = {"role": "system", "content": f"""Date: {fullDate} Location: {location}. 
                 Your identity: You are a helpful and empathetic chat bot named Wheatley. Please respond to my message as effectively as you can. 
                 Use an emoji in your response if you think it will add to readibility. 
-                Use Markdown language to format your responses for improved readability.
-                My identity: I am Steve. A friend of yours."""}
+                Use Markdown language to format your responses for improved readability."""}
     history.append(wheatley)
     identity = wheatley
 
@@ -213,7 +212,7 @@ def calculateCost():
     if (model == "gpt-3.5-turbo-0125"):
         cost_per_token = 0.0015 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
     elif (model == "gpt-4-turbo"):
-        cost_per_token = 0.003 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
+        cost_per_token = 0.02 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
     elif (model == lmStudioModel or model == groqModel):
         cost_per_token = 0 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
     totalTokens = num_tokens_from_messages(history) - 4
