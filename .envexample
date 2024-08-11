@@ -12,6 +12,11 @@ OPENAI_API_KEY=''
 GROQ_API_KEY=''# groq API key -- access to many other models - a mode selected by typing !groq in chat
 discordBotToken = ''
 
+
+
+
+
+
 ### ALL settings from this line down are OPTIONAL to set/change
 notifications = 1 # set to 1 and check the OPTIONAL NOTIFICATIONS section to configure your notification functions and timing if desired, you'll see I have weather messages and work out reminders set as default
 location = ""
