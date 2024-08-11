@@ -1,0 +1,38 @@
+###
+##IMPORTANT##
+#AT THE VERY LEAST, YOU NEED TO FILL OUT YOUR OPENAIAPI KEY AND/OR GROQ KEY AND YOUR DISCORD BOT TOKEN FOR THE BOT TO WORK
+###
+
+# Timezone
+time_zone = 'America/Toronto'
+
+#IMPORTANT - AT THE VERY LEAST, YOU NEED TO FILL OUT YOUR OPENAIAPI KEY AND/OR GROQ KEY AND YOUR DISCORD BOT TOKEN FOR THE BOT TO WORK
+#set api keys and other variables (need to move this into a .env...)
+OPENAI_API_KEY=''
+GROQ_API_KEY=''# groq API key -- access to many other models - a mode selected by typing !groq in chat
+discordBotToken = ''
+
+### ALL settings from this line down are OPTIONAL to set/change
+notifications = 1 # set to 1 and check the OPTIONAL NOTIFICATIONS section to configure your notification functions and timing if desired, you'll see I have weather messages and work out reminders set as default
+location = ""
+weatherURL = "" #if using notifications, this will be the website scraped every morning to provide the weather
+
+# needed for wheatley to have googling powers
+googleApiKey = "" 
+googleEngineID = ""
+
+mainChannelID = 123456789 # wheatley will have a welcome message for you when he boots up if you set this to your discord channel ID
+modelTemp = 0.7 #model temperature, 0 is more precise answers, 1 is more creative, and you can use decimals
+model = "gpt-4o-mini" #set defaul model the bot starts as
+lmStudioModel = "llama 3 7B" #actual text doesn't matter, it uses whatever model is loaded in lmstudio
+groqModel = "llama3-70b-8192"
+
+#comfyui and lmstudio ip's ports (if you have them setup, for image generation and local llm chat respectively)
+comfyIP = "" # More Info: https://github.com/comfyanonymous/ComfyUI
+comfyPort = ""
+w = 1280 #default comfy image gen dimensions
+h = 720
+
+# More Info: https://lmstudio.ai/
+lmstudioIP = ""
+lmstudioPort = ""
