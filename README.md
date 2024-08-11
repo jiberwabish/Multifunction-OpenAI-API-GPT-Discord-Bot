@@ -1,4 +1,4 @@
-# Wheatley Discord Bot (ChatGPT backed OpenAI API bot to be precise, gpt3.5, 4, groq, lm-studio modes available)
+# Wheatley Discord Bot (ChatGPT backed OpenAI API bot to be precise GPT4o, 4omini, groq, lm-studio modes available)
 
 ## What is this?
 
