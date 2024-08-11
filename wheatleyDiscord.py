@@ -5,7 +5,7 @@
 # searches a day (note each search uses 3 searches)
 # Fill in variables in .env
 # Created Jan 2023
-# Last updated Apr 2024
+# Last updated Aug 2024
 # Author Jiberwabish
 
 
@@ -68,7 +68,7 @@ comfyIP = os.environ['comfyIP']
 comfyPort = os.environ['comfyPort']
 lmstudioIP = os.environ['lmstudioIP']
 lmstudioPort = os.environ['lmstudioPort']
-notifications = os.environ['notifications']
+notifications = int(os.environ['notifications'])
 
 #model temperature, 0 is more precise answers, 1 is more creative, and you can use decimals
 modelTemp = float(os.environ['modelTemp'])
@@ -210,16 +210,17 @@ def calculateCost():
     global history
     global prompt_token_count
     #calculate cost
-    if (model == "gpt-3.5-turbo-0125"):
-        cost_per_token = 0.0015 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
-    elif (model == "gpt-4-turbo"):
-        cost_per_token = 0.003 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
+    if (model == "gpt-4o-mini"):
+        cost_per_token = 0.00015 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
+    elif (model == "gpt-4o"):
+        cost_per_token = 0.02 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
     elif (model == lmStudioModel or model == groqModel):
         cost_per_token = 0 / 1000  # $0.0015 for turbo3.5 16k per 1000 tokens
     totalTokens = num_tokens_from_messages(history) - 4
     totalCost = totalTokens * cost_per_token
     global costing
     costing = f"🪙 ${totalCost:.4f} -- 🎟️ Tokens {totalTokens}"
+    #not currently printing this.
 
 #function that takes the user input and sends it off to openai model specified
 #and returns the bots response back to where it's called as the 'message' variable 
@@ -238,9 +239,6 @@ async def ask_openai(prompt, history):
     history.append({"role": "assistant", "content": response.choices[0].message.content})
     return str(response.choices[0].message.content)
 
-
-# streams AND will add a second message if nearing discord character limit per message
-# but no support for a third message at this point
 async def stream_openai_multi(prompt, history, channel):
     global num_tokens
     global prompt_token_count
@@ -259,9 +257,9 @@ async def stream_openai_multi(prompt, history, channel):
     #send the first message that will continually be editted
     #send the first message that will continually be editted
     model_to_emoji = {
-    "gpt-3.5-turbo-0125": "🤔",
+    "gpt-4o-mini": "🤔",
     lmStudioModel: "💭",
-    "gpt-4-turbo": "🧠",
+    "gpt-4o": "🧠",
     groqModel: "🦙"
     }
     streamedMessage = await channel.send(model_to_emoji[model])
@@ -291,8 +289,8 @@ async def stream_openai_multi(prompt, history, channel):
                         second_reply_content = ''.join(second_collected_messages)
                         counter += 1 # used to slow down how often chunks are actually printed/edited to discord
             
-                if counter % 80 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
-                    if len(fullMessage) >= 1700:  # Check if message length is close to the Discord limit
+                if counter % 40 == 0: # when the number of chunks is divisible by 10 (so every 10) print to discord
+                    if len(fullMessage) >= 1800:  # Check if message length is close to the Discord limit
                         if newMessage == 0: # if this is the first time it's been over...
                             await streamedMessage.edit(content=fullMessage) # complete the first message 
                             streamedMessage2 = await channel.send("...")  # create a blank message for the second message to stream into
@@ -356,17 +354,7 @@ def get_first_500_words(url, numWords):
         first_n_words = all_filtered_words[:numWords]
         
         return ' '.join(first_n_words)
-        # # Set User-Agent to avoid getting blocked by some websites
-        # headers = {'User-Agent': 'Mozilla/5.0'}
-        # # Set a timeout to avoid getting stuck on slow sites
-        # response = requests.get(url, headers=headers, timeout=10)
-        # # Specify the encoding to avoid decoding issues
-        # response.encoding = 'utf-8'
-        # soup = BeautifulSoup(response.text, 'html.parser')
-        # text = soup.get_text()
-        # words = text.split()
-        # first_500_words = words[:numWords]
-        # return ' '.join(first_500_words)
+        
     except requests.exceptions.RequestException as e:
         # Log the error and include the URL that caused the error
         #logging.error(f"Error while scraping URL {url}: {str(e)}")
@@ -484,21 +472,21 @@ async def promptCreation(prompt,channel):
 # set wheatleys mode to Local LLM, 3.5 or 4
 async def setModeLLM():
     global aiclient, identity
-    aiclient = OpenAI(base_url="http://192.168.64.123:1234/v1", api_key="lm-studio")
+    aiclient = OpenAI(base_url=f"http://{comfyIP}:{comfyPort}/v1", api_key="lm-studio")
     global model_max_tokens
     model_max_tokens = 16000
     global model
     model = lmStudioModel
     print(f"Model set to {lmStudioModel}")
 
-async def setModeGPT35():
+async def setmodeMini():
     global aiclient, identity
     aiclient = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
     global model_max_tokens
     model_max_tokens = 4096
     global model
-    model = "gpt-3.5-turbo-0125"
-    print(f"Model set to gpt-3.5-turbo-0125")
+    model = "gpt-4o-mini"
+    print(f"Model set to gpt-4o-mini")
 
 async def setModeGPT4():
     global aiclient, identity
@@ -507,8 +495,8 @@ async def setModeGPT4():
     global model_max_tokens
     model_max_tokens = 16000
     global model
-    model = "gpt-4-turbo"
-    print(f"Model set to gpt-4-turbo")
+    model = "gpt-4o"
+    print(f"Model set to gpt-4o")
 
 async def setModeGroq():
     global aiclient, identity
@@ -520,8 +508,8 @@ async def setModeGroq():
     print(f"Model set to {groqModel}")
 
 async def setFormerModel(formerModel):
-    if (formerModel == "gpt-3.5-turbo-0125"):
-        await setModeGPT35()
+    if (formerModel == "gpt-4o-mini"):
+        await setmodeMini()
         return   
     elif (formerModel == lmStudioModel):
         if is_port_listening(lmstudioIP,lmstudioPort) == True:
@@ -529,7 +517,7 @@ async def setFormerModel(formerModel):
         else: #lm studio isn't running
             await botFunctions.tealMessage(f"{lmStudioModel} is not online.. Sticking with {model}.",channel)
         return
-    elif (formerModel == "gpt-4-turbo"):
+    elif (formerModel == "gpt-4o"):
         await setModeGPT4()
         return
     elif (formerModel == groqModel):
@@ -542,6 +530,7 @@ async def on_ready():
     global modelTemp
     global w
     global h
+    global notifications
     #change this to the channel id where you want reminders to pop up
     main_channel_id = int(os.environ['mainChannelID'])
     main_channel_id_object = await client.fetch_channel(main_channel_id)
@@ -555,7 +544,7 @@ async def on_ready():
     await botFunctions.tealMessage(f"""👋Good day!\n💬Feel free to start chatting!\n🙏Done with the conversation? Just say 'thanks' somewhere in your message.\n\n
         🔎Need current info? Say the words 'search' and 'please' somewhere in your message.\n🖼️Want a picture or four? Mention the word 'picture' and 'generate' 
         and describe what you'd like to see, as well as how many.\n\n📲If you want to see more commands, just type !help\n\n
-        🤖AI Models Available: \n!gpt3 - GPT-3.5-Turbo\n!gpt4 - GPT-4-Turbo\n!llm - {lmStudioModel}\n!groq - llama 3 70B""",main_channel_id_object)
+        🤖AI Models Available: \n!mini - GPT-4o-mini\n!gpt4 - GPT-4o\n!llm - {lmStudioModel}\n!groq - llama 3 70B""",main_channel_id_object)
     if is_port_listening(lmstudioIP,lmstudioPort) == True:
         await botFunctions.blackMessage(f"🟢 Local model {lmStudioModel} is currently online.", main_channel_id_object)
     else:
@@ -576,9 +565,9 @@ async def on_ready():
         global history
         resetConvoHistory()
         channel = await client.fetch_channel(main_channel_id)
-        formerModel = model
-        if is_port_listening(lmstudioIP,lmstudioPort) == True:
-            await setModeLLM()
+        # formerModel = model
+        # if is_port_listening(lmstudioIP,lmstudioPort) == True:
+        #     await setModeLLM()
         positiveMessage = await ask_openai(f"It's the morning, Please say something nice to get my day started off on the right",history)                
         await botFunctions.purpleMessage(positiveMessage,channel)
         resetConvoHistory()
@@ -595,9 +584,10 @@ async def on_ready():
             await botFunctions.tealMessage("Sorry, my image generator isn't currently online.",channel)
         resetConvoHistory()
         #reset model back to whatever the userleft it at
-        await setFormerModel(formerModel)
+        # await setFormerModel(formerModel)
 
     async def gratitudes():
+        #asks for your gratitudes daily
         resetConvoHistory()
         channel = await client.fetch_channel(main_channel_id)
         await botFunctions.purpleMessage("🌸What are your three gratitudes for the day?🌿",channel)
@@ -658,7 +648,7 @@ async def on_message(message):
             formerModel = model
             channel = message.channel
             if formerModel == lmStudioModel:
-                await setModeGPT35() #create the prompt with gpt3.5 to not hog ram
+                await setmodeMini() #create the prompt with gpt3.5 to not hog ram
             numImages = await ask_openai(f"The user just asked for a picture: {message.content} \n How many pictures does it sound like they wanted? Answer with only the number, like 1, 2, 3 or 4", history)
             print(f"Number of Images: {numImages}")
             if "1" in numImages:
@@ -677,7 +667,13 @@ async def on_message(message):
                     #basis = await ask_openai("Describe this image in detail as instructed previously.", history)
                     promptForImagine = await promptCreation(message.content,channel)
                     print(f"\n\nPrompt {i} - {promptForImagine}")
-                    await botFunctions.comfyRefined(promptForImagine,1,channel,w,h)
+                    try:
+                        # Set a timeout for each image loading
+                        await asyncio.wait_for(botFunctions.comfyRefined(promptForImagine, 1, channel, w, h), timeout=120)  # e.g., 120 seconds
+                    except asyncio.TimeoutError:
+                        await channel.send(f"Timed out while generating image {i}. Please try again later.")  # Handle the timeout scenario
+                    except Exception as e:
+                        await channel.send(f"An error occurred: {e}")
                 calculateCost()
                 await botFunctions.tealMessage(f"{model} 🎟️ Tokens {totalTokens} ",message.channel)
             else:
@@ -858,12 +854,12 @@ async def on_message(message):
             print(e)        
             await botFunctions.redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",message.channel)
         return
-    elif '!gpt3' in message.content:
-        await botFunctions.tealMessage("GPT3 - Activated",message.channel)
-        await setModeGPT35()
+    elif '!mini' in message.content:
+        await botFunctions.tealMessage("GPT4o-mini - Activated",message.channel)
+        await setmodeMini()
         return
     elif '!gpt4' in message.content:
-        await botFunctions.tealMessage("GPT4 - Activated",message.channel)
+        await botFunctions.tealMessage("GPT4o - Activated",message.channel)
         await setModeGPT4()
         return
     elif '!groq' in message.content:
@@ -881,7 +877,7 @@ async def on_message(message):
     # displays all commands
     elif '!help' in message.content:
         await botFunctions.tealMessage("👋Good day!\n💬Feel free to start chatting!\n🙏Done with the conversation? Just say 'thanks' somewhere in your message.\n\n🔎Need current info? Say the words 'search' and 'please' somewhere in your message.\n🖼️Want a picture or four? Mention the word 'picture' and 'generate' and describe what you'd like to see, as well as how many.\n\n📲If you want to see more commands, just type !help\n",message.channel)
-        await botFunctions.blueMessage(f"🤖AI Models Available: \n!gpt3 - GPT-3.5-Turbo\n!gpt4 - GPT-4-Turbo\n!llm - {lmStudioModel}\n!groq - llama 3 70B", message.channel )
+        await botFunctions.blueMessage(f"🤖AI Models Available: \n!mini - GPT-4o-mini\n!gpt4 - GPT-4o\n!llm - {lmStudioModel}\n!groq - llama 3 70B", message.channel )
         if is_port_listening(lmstudioIP,lmstudioPort) == True:
             await botFunctions.blackMessage(f"🟢 Local model {lmStudioModel} is currently online.", message.channel)
         else:
@@ -918,6 +914,116 @@ async def on_message(message):
         print(e)        
         await botFunctions.redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",message.channel)
         return
+
+#intent, in case I want to revisit:
+#Streaming by default - with intent
+#     try:            
+#         if (model != "Gemini" and model != "open-mixtral-8x7b"): #took out local to test    model != "Local LLM" and 
+#             #add user message to history so that main memory has access to it
+#             #history.append(user_response_obj)
+#             #ask the non-history keeping openai to discern intent
+#             intent = await ask_openai_intent(f"""
+#                 Given the user's recent input '{message.content}', please discern the intent of this message based on the following guidelines:
+#                 1 - Choose 1 by default unless the user is asking for an image or an online search
+#                 2 - Choose 2 if the user's message is specifically asking to create an image of some sort.
+#                 3 - Only choose this option if the user's message contains clear and explicit requests for an online search using phrases like 'search for', 'look up on the internet', 'find online information about', or 'Google for me'.
+                
+#                 IMPORTANT: Avoid option 3 unless specifically asked to search. EVEN if you don't know the answer or can't know the answer without a google search.
+                
+#                 Based on these guidelines, reply with ONLY the digit 1, 2, or 3.
+#                 """, history)
+#             # intent = await ask_openai_intent(f"""
+#             #     Given the users recent input '{message.content}'. Please discern the intent of this message.:
+#             #     1 - User is looking for a standard response from you
+#             #     2 - User is specifically requesting creation of an image
+#             #     3 - User is specifically requesting an online search
+#             #     Reply with ONLY the digit 1, 2 or 3.
+#             #     """, history)
+#             if "1" in intent: #respond normally
+#                 await stream_openai_multi(message.content,history,message.channel)
+#                 calculateCost()
+#                 await tealMessage(f"🎟️ Tokens {totalTokens} -- 🤖 Model {model}",message.channel)
+#                 print(f"Convo History\n{history}")
+#                 print(f"IntentHistory\n{intentHistory}")
+#                 return
+#             elif "2" in intent: #generate a pic
+#                 channel = message.channel
+#                 numImages = await ask_openai_intent("How many pictures does it sound like they wanted? Answer with only the number, and nothing higher than 4.", history)
+#                 numImages = int(numImages)
+#                 if (numImages > 4):
+#                     await channel.send("Sorry that's too many, but I'll make you 4.")
+#                     numImages = 4
+#                 await yellowMessage(f"Painting {numImages} {w}x{h} images... 🖌🎨\nPlease wait for all of them⌛\n(about 12 seconds per picture⏲️)",channel)
+#                 for i in range(1, numImages + 1):
+#                     #basis = await ask_openai("Describe this image in detail as instructed previously.", history)
+#                     promptForImagine = await promptCreation(message.content,channel)
+#                     await comfyRefined(promptForImagine,1,channel,w,h)
+#                 # member=message.guild.me
+#                 # await member.edit(nick='Wheatley')
+#                 calculateCost()
+#                 await tealMessage(f"🎟️ Tokens {totalTokens} -- 🤖 Model {model}",message.channel)
+#                 print(f"Convo History\n{history}")
+#                 print(f"IntentHistory\n{intentHistory}")
+#                 return
+#             elif "3" in intent: # search
+#                 #wipe history as this could get big
+#                 # resetConvoHistory()
+#                 channel = message.channel
+#                 # question = message.content
+#                 #print(history[-3:])
+#                 question = message.content
+#                 streamedMessage = await channel.send("🔎")
+#                 try:
+#                     searchTerms = await ask_openai(f"Come up with 3 different web searches that you think would help you answer this question :```{question}``` Reply with ONLY the search terms, prepended by 1., 2. then 3. Do not use emojis or explain them.",history)
+#                     await streamedMessage.delete()
+#                     #strip quotes
+#                     searchTerms = searchTerms.replace('"', '')
+#                     #await yellowMessage(f"Searching:\n{searchTerms}.",channel)
+#                     #split the search terms into three separate variables
+#                     splitSearch=searchTerms.split("\n")
+#                     search1=splitSearch[0]
+#                     search2=splitSearch[1]
+#                     search3=splitSearch[2]
+#                     await silentMultiGoogle(search1, search2, search3, question, channel)
+#                     calculateCost()
+#                     await tealMessage(f"🎟️ Tokens {totalTokens} -- 🤖 Model {model}",message.channel)
+#                     print(f"Convo History\n{history}")
+#                     print(f"IntentHistory\n{intentHistory}")
+#                     #search uses so many tokens now, replying would create an error unless you use !16k flag so just to be safe, wiping history by default
+#                     #resetConvoHistory() 
+#                     return
+#                 except Exception as e:
+#                     error_message = str(e)
+#                     print(e)            
+#                     await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",channel)
+#                     return
+#             else:
+#                 await blurpleMessage(intent,message.channel)
+#                 return
+#         elif(model=="Local LLM"):
+#             #sends users question to openai
+#             await stream_openai_multi(message.content,history,message.channel)
+#             calculateCost()
+#             await tealMessage(f"🎟️ Tokens {totalTokens} -- 🤖 Model {model}",message.channel)
+#         elif(model=="Gemini"):
+#             channel = message.channel
+#             googleMessage = await ask_gemini(message.content[7:],ghistory)
+#             await channel.send(googleMessage)
+#             await tealMessage(f"🎟️ Tokens {totalTokens} -- 🤖 Model {model}",message.channel)
+#         elif(model=="open-mixtral-8x7b"):
+#             await stream_mistral_multi(message.content,history,message.channel)
+#             calculateCost()
+#             await tealMessage(f"🎟️ Tokens {totalTokens} -- 🤖 Model {model}",message.channel)
+#     except Exception as e:
+#         error_message = str(e)
+#         print(e)        
+#         await redMessage(f"Shoot..Something went wrong or timed out.\nHere's the error message:\n{error_message}",message.channel)
+#         return
+
+# client.run(discordBotToken)
+#---/DISCORD SECTION---#
+
+
 
 # fire up the bot
 client.run(discordBotToken)

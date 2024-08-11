@@ -72,61 +72,37 @@ async def comfyRefined(description,batch,channel,w,h):
     randomSeed = random.randint(1,10000000)
 
      
-    # Generate a unique client ID using UUID
-    client_id = str(uuid.uuid4())
-
-    # Function to queue a prompt for execution
     def queue_prompt(prompt):
-        # Prepare the data to send in the request body
         p = {"prompt": prompt, "client_id": client_id}
         data = json.dumps(p).encode('utf-8')
-        
-        # Make an HTTP request to queue the prompt
-        req =  urllib.request.Request(f"http://{server_address}/prompt", data=data)
+        req =  urllib.request.Request("http://{}/prompt".format(server_address), data=data)
         return json.loads(urllib.request.urlopen(req).read())
 
-    # Function to fetch an image
     def get_image(filename, subfolder, folder_type):
-        # Prepare the query parameters
         data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
         url_values = urllib.parse.urlencode(data)
-        
-        # Make an HTTP request to fetch the image
-        with urllib.request.urlopen(f"http://{server_address}/view?{url_values}") as response:
+        with urllib.request.urlopen("http://{}/view?{}".format(server_address, url_values)) as response:
             return response.read()
 
-    # Function to fetch the history of a prompt
     def get_history(prompt_id):
-        # Make an HTTP request to fetch the history
-        with urllib.request.urlopen(f"http://{server_address}/history/{prompt_id}") as response:
+        with urllib.request.urlopen("http://{}/history/{}".format(server_address, prompt_id)) as response:
             return json.loads(response.read())
 
-    # Function to fetch images after a prompt has been executed
     def get_images(ws, prompt):
-        # Queue the prompt and get its ID
         prompt_id = queue_prompt(prompt)['prompt_id']
         output_images = {}
-        
-        # Keep listening on the websocket
         while True:
             out = ws.recv()
-            
-            # Check the type of message received
             if isinstance(out, str):
                 message = json.loads(out)
-                
-                # Check if the prompt is still executing
                 if message['type'] == 'executing':
                     data = message['data']
                     if data['node'] is None and data['prompt_id'] == prompt_id:
-                        break  # Execution is done
+                        break #Execution is done
             else:
-                continue  # Previews are binary data
+                continue #previews are binary data
 
-        # Fetch the history for this prompt
         history = get_history(prompt_id)[prompt_id]
-        
-        # Iterate over the outputs to fetch images
         for o in history['outputs']:
             for node_id in history['outputs']:
                 node_output = history['outputs'][node_id]
@@ -135,7 +111,7 @@ async def comfyRefined(description,batch,channel,w,h):
                     for image in node_output['images']:
                         image_data = get_image(image['filename'], image['subfolder'], image['type'])
                         images_output.append(image_data)
-                    output_images[node_id] = images_output
+                output_images[node_id] = images_output
 
         return output_images
 
@@ -143,179 +119,180 @@ async def comfyRefined(description,batch,channel,w,h):
 
     prompt_text = """
     {
-        "4": {
-            "inputs": {
-            "ckpt_name": "sd_xl_base_1.0.safetensors"
-            },
-            "class_type": "CheckpointLoaderSimple"
-        },
-        "5": {
-            "inputs": {
-            "width": 1024,
-            "height": 1024,
-            "batch_size": 1
-            },
-            "class_type": "EmptyLatentImage"
-        },
         "6": {
             "inputs": {
-            "text": "Misty mountains",
-            "clip": [
-                "4",
-                1
-            ]
+                "text": [
+                    "37",
+                    0
+                ],
+                "clip": [
+                    "30",
+                    1
+                ]
             },
-            "class_type": "CLIPTextEncode"
+            "class_type": "CLIPTextEncode",
+            "_meta": {
+                "title": "CLIP Text Encode (Positive Prompt)"
+            }
         },
-        "7": {
+        "8": {
             "inputs": {
-            "text": "",
-            "clip": [
-                "4",
-                1
-            ]
+                "samples": [
+                    "31",
+                    0
+                ],
+                "vae": [
+                    "30",
+                    2
+                ]
             },
-            "class_type": "CLIPTextEncode"
+            "class_type": "VAEDecode",
+            "_meta": {
+                "title": "VAE Decode"
+            }
         },
-        "10": {
+        "27": {
             "inputs": {
-            "add_noise": "enable",
-            "noise_seed": 73365373102413,
-            "steps": 25,
-            "cfg": 8,
-            "sampler_name": "euler",
-            "scheduler": "normal",
-            "start_at_step": 0,
-            "end_at_step": 20,
-            "return_with_leftover_noise": "enable",
-            "model": [
-                "4",
-                0
-            ],
-            "positive": [
-                "6",
-                0
-            ],
-            "negative": [
-                "7",
-                0
-            ],
-            "latent_image": [
-                "5",
-                0
-            ]
+                "width": 1024,
+                "height": 1024,
+                "batch_size": 1
             },
-            "class_type": "KSamplerAdvanced"
+            "class_type": "EmptySD3LatentImage",
+            "_meta": {
+                "title": "EmptySD3LatentImage"
+            }
         },
-        "11": {
+        "30": {
             "inputs": {
-            "add_noise": "disable",
-            "noise_seed": 0,
-            "steps": 25,
-            "cfg": 8,
-            "sampler_name": "euler",
-            "scheduler": "normal",
-            "start_at_step": 20,
-            "end_at_step": 10000,
-            "return_with_leftover_noise": "disable",
-            "model": [
-                "12",
-                0
-            ],
-            "positive": [
-                "15",
-                0
-            ],
-            "negative": [
-                "16",
-                0
-            ],
-            "latent_image": [
-                "10",
-                0
-            ]
+                "ckpt_name": "flux1-schnell-fp8.safetensors"
             },
-            "class_type": "KSamplerAdvanced"
+            "class_type": "CheckpointLoaderSimple",
+            "_meta": {
+                "title": "Load Checkpoint"
+            }
         },
-        "12": {
+        "31": {
             "inputs": {
-            "ckpt_name": "sd_xl_refiner_1.0.safetensors"
+                "seed": 923371567189677,
+                "steps": 4,
+                "cfg": 1,
+                "sampler_name": "euler",
+                "scheduler": "simple",
+                "denoise": 1,
+                "model": [
+                    "30",
+                    0
+                ],
+                "positive": [
+                    "35",
+                    0
+                ],
+                "negative": [
+                    "33",
+                    0
+                ],
+                "latent_image": [
+                    "27",
+                    0
+                ]
             },
-            "class_type": "CheckpointLoaderSimple"
+            "class_type": "KSampler",
+            "_meta": {
+                "title": "KSampler"
+            }
         },
-        "15": {
+        "33": {
             "inputs": {
-            "text": "Misty mountains",
-            "clip": [
-                "12",
-                1
-            ]
+                "text": "",
+                "clip": [
+                    "30",
+                    1
+                ]
             },
-            "class_type": "CLIPTextEncode"
+            "class_type": "CLIPTextEncode",
+            "_meta": {
+                "title": "CLIP Text Encode (Negative Prompt)"
+            }
         },
-        "16": {
+        "35": {
             "inputs": {
-            "text": "",
-            "clip": [
-                "12",
-                1
-            ]
+                "guidance": 4,
+                "conditioning": [
+                    "6",
+                    0
+                ]
             },
-            "class_type": "CLIPTextEncode"
+            "class_type": "FluxGuidance",
+            "_meta": {
+                "title": "FluxGuidance"
+            }
         },
-        "17": {
+        "37": {
             "inputs": {
-            "samples": [
-                "11",
-                0
-            ],
-            "vae": [
-                "12",
-                2
-            ]
+                "text": "prompt goes here",
+                "seed": 654,
+                "autorefresh": "No"
             },
-            "class_type": "VAEDecode"
+            "class_type": "DPCombinatorialGenerator",
+            "_meta": {
+                "title": "Combinatorial Prompts"
+            }
         },
-        "50": {
+        "47": {
             "inputs": {
-            "images": [
-                "17",
-                0
-            ]
+                "images": [
+                    "8",
+                    0
+                ]
             },
-            "class_type": "PreviewImage"
+            "class_type": "PreviewImage",
+            "_meta": {
+                "title": "Preview Image"
+            }
         }
-        }
+    }
     """
 
     prompt = json.loads(prompt_text)
     #set the text prompt for our positive CLIPTextEncode
-    prompt["6"]["inputs"]["text"] = description
+    prompt["37"]["inputs"]["text"] = description
 
     #set the seed for our KSampler node
-    prompt["10"]["inputs"]["noise_seed"] = randomSeed
-    prompt["11"]["inputs"]["noise_seed"] = randomSeed
-    prompt["5"]["inputs"]["batch_size"] = batch
-    prompt["5"]["inputs"]["width"] = w
-    prompt["5"]["inputs"]["height"] = h
+    prompt["31"]["inputs"]["seed"] = randomSeed
+    prompt["27"]["inputs"]["batch_size"] = batch
+    prompt["27"]["inputs"]["width"] = w
+    prompt["27"]["inputs"]["height"] = h
 
     #print("ws://{}/ws?clientId={}".format(server_address, client_id))
     # Connect to the websocket
-    ws = websocket.WebSocket()
-    ws.connect(f"ws://{server_address}/ws?clientId={client_id}")
+    ws = None
+    try:
+        ws = websocket.WebSocket()
+        ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
 
-    # Fetch the images
-    images = get_images(ws, prompt)
-
-    #Code to display the output images (commented out)
-    for node_id in images:
-        for image_data in images[node_id]:
-            image = Image.open(io.BytesIO(image_data))
-            image.save(f"ComfyImages/comfy_{randomSeed}.jpg")
-            discordImage = discord.File(f"ComfyImages/comfy_{randomSeed}.jpg", filename='image1.jpg')
-            discembed = discord.Embed()
-            discembed.set_image(url="attachment://image1.jpg")
-            await channel.send(file=discordImage, embed=discembed)
+        # Fetch the images
+        images = get_images(ws, prompt)
+    except websocket.WebSocketException as e:
+        print (f"WebSocketException occurred: {e}")
+    finally:
+        if ws is not None:
+            ws.close()
+            
+    if images: # ensure images aren't empty
+        try:
+            for node_id in images:
+                for image_data in images[node_id]:
+                    image = Image.open(io.BytesIO(image_data))
+                    print("About to save image locally")
+                    image.save(f"ComfyImages/comfy_{randomSeed}.jpg")
+                    print("Saved!")
+                    discordImage = discord.File(f"ComfyImages/comfy_{randomSeed}.jpg", filename='image1.jpg')
+                    discembed = discord.Embed()
+                    discembed.set_image(url="attachment://image1.jpg")
+                    await channel.send(file=discordImage, embed=discembed)
+                    image.close()
+        except Exception as e:
+            print(f"An error occurred: {e}")
     return
 
 # comfy upscale tool - 4x's the attached picture
@@ -324,62 +301,38 @@ async def comfyUpscale(pic,channel):
     client_id = str(uuid.uuid4())
     randomSeed = random.randint(1,10000000)
 
-    
-    # Generate a unique client ID using UUID
-    client_id = str(uuid.uuid4())
-
-    # Function to queue a prompt for execution
+     
     def queue_prompt(prompt):
-        # Prepare the data to send in the request body
         p = {"prompt": prompt, "client_id": client_id}
         data = json.dumps(p).encode('utf-8')
-        
-        # Make an HTTP request to queue the prompt
-        req =  urllib.request.Request(f"http://{server_address}/prompt", data=data)
+        req =  urllib.request.Request("http://{}/prompt".format(server_address), data=data)
         return json.loads(urllib.request.urlopen(req).read())
 
-    # Function to fetch an image
     def get_image(filename, subfolder, folder_type):
-        # Prepare the query parameters
         data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
         url_values = urllib.parse.urlencode(data)
-        
-        # Make an HTTP request to fetch the image
-        with urllib.request.urlopen(f"http://{server_address}/view?{url_values}") as response:
+        with urllib.request.urlopen("http://{}/view?{}".format(server_address, url_values)) as response:
             return response.read()
 
-    # Function to fetch the history of a prompt
     def get_history(prompt_id):
-        # Make an HTTP request to fetch the history
-        with urllib.request.urlopen(f"http://{server_address}/history/{prompt_id}") as response:
+        with urllib.request.urlopen("http://{}/history/{}".format(server_address, prompt_id)) as response:
             return json.loads(response.read())
 
-    # Function to fetch images after a prompt has been executed
     def get_images(ws, prompt):
-        # Queue the prompt and get its ID
         prompt_id = queue_prompt(prompt)['prompt_id']
         output_images = {}
-        
-        # Keep listening on the websocket
         while True:
             out = ws.recv()
-            
-            # Check the type of message received
             if isinstance(out, str):
                 message = json.loads(out)
-                
-                # Check if the prompt is still executing
                 if message['type'] == 'executing':
                     data = message['data']
                     if data['node'] is None and data['prompt_id'] == prompt_id:
-                        break  # Execution is done
+                        break #Execution is done
             else:
-                continue  # Previews are binary data
+                continue #previews are binary data
 
-        # Fetch the history for this prompt
         history = get_history(prompt_id)[prompt_id]
-        
-        # Iterate over the outputs to fetch images
         for o in history['outputs']:
             for node_id in history['outputs']:
                 node_output = history['outputs'][node_id]
@@ -388,7 +341,7 @@ async def comfyUpscale(pic,channel):
                     for image in node_output['images']:
                         image_data = get_image(image['filename'], image['subfolder'], image['type'])
                         images_output.append(image_data)
-                    output_images[node_id] = images_output
+                output_images[node_id] = images_output
 
         return output_images
 
@@ -436,25 +389,32 @@ async def comfyUpscale(pic,channel):
     prompt = json.loads(prompt_text)
     prompt["19"]["inputs"]["image"] = pic
 
-    #print("ws://{}/ws?clientId={}".format(server_address, client_id))
-    # Connect to the websocket
-    ws = websocket.WebSocket()
-    ws.connect(f"ws://{server_address}/ws?clientId={client_id}")
+    ws = None
+    try:
+        ws = websocket.WebSocket()
+        ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
 
-    # Fetch the images
-    images = get_images(ws, prompt)
+        # Fetch the images
+        images = get_images(ws, prompt)
+    except websocket.WebSocketException as e:
+        print (f"WebSocketException occurred: {e}")
+    finally:
+        if ws is not None:
+            ws.close()
 
-    #Code to display the output images (commented out)
-    for node_id in images:
-        run = 0
-        for image_data in images[node_id]:
-            image = Image.open(io.BytesIO(image_data))
-            image.save(f"ComfyImages/comfy_{randomSeed}-{run}.jpg")
-            discordImage = discord.File(f"ComfyImages/comfy_{randomSeed}-{run}.jpg", filename=f'image{randomSeed}-{run}.jpg')
-            discembed = discord.Embed()
-            discembed.set_image(url=f"attachment://image{randomSeed}-{run}.jpg")
-            await channel.send(file=discordImage, embed=discembed)
-            run += 1
-    #debug
-    #await channel.send("Done!")
+    if images: # ensure images aren't empty
+        try:
+            for node_id in images:
+                for image_data in images[node_id]:
+                    image = Image.open(io.BytesIO(image_data))
+                    print("About to save image locally")
+                    image.save(f"ComfyImages/comfy_{randomSeed}.jpg")
+                    print("Saved!")
+                    discordImage = discord.File(f"ComfyImages/comfy_{randomSeed}.jpg", filename='image1.jpg')
+                    discembed = discord.Embed()
+                    discembed.set_image(url="attachment://image1.jpg")
+                    await channel.send(file=discordImage, embed=discembed)
+                    image.close()
+        except Exception as e:
+            print(f"An error occurred: {e}")
     return

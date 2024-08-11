@@ -1,2 +1,3 @@
 .env
-./ComfyImages
+ComfyImages/
+__pycache__

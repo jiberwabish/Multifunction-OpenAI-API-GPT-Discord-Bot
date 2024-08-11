@@ -6,7 +6,7 @@ Welcome to the Wheatley Discord Bot! This bot is designed to provide you with in
 
 Bring ChatGPT/Groq/your local LLM with you everywhere via Discord.
 
-I have a persona for Wheatley (the funny ai in Portal 2 voiced by Stephen Merchnat) but you are free to easily just change the variable to whatever persona you want.
+I have a persona for Wheatley (the funny ai in Portal 2 voiced by Stephen Merchant) but you are free to easily just change the variable to whatever persona you want.
 
 ## Disclaimer - I am not a programmer by trade! 
 - I am learning as I go. I've used chatgpt to help me write this bot and now I just use this bot to help me write this bot.
@@ -19,8 +19,8 @@ I have a persona for Wheatley (the funny ai in Portal 2 voiced by Stephen Merchn
 
 - wheatleyDiscord.py - the main bot, gpt3.5, 4, lm-studio (if you have that setup), groq, lots of functions, !help once he's up explains them all
 - requirements.txt - list of librarys, can be installed once you have python up and running with pip install -r requirements.txt
-- .env - enter all your necessary apis/variables here
-- botFunctions - holds some lenghty functions just to keep main script kind of clean
+- .envexample - enter all your necessary apis/variables here then RENAME to .env
+- botFunctions - holds some lengthy functions just to keep main script kind of clean
 
 ## Requirements
 
