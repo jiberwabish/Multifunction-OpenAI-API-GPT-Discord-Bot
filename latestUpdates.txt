@@ -1,0 +1,6 @@
+2005 - jw
+- updated article summarizer to grab first 50000 words intead of 13000
+- disabled notifications in .envexample by default
+- updated googler to grab 4000 words per searched page
+- removed hardcoded switch to lmstudio model for google searchs now that gp4omini has a much larger context window and is dirt cheap
+- updated weather report daily to uplifting news instead, weather was always incorrect...

@@ -363,7 +363,7 @@ def get_first_500_words(url, numWords):
 #summarize a single url
 async def summarize(url,channel):
     print("Scraping...")
-    scrapedSummaryUrl = get_first_500_words(url,13000)
+    scrapedSummaryUrl = get_first_500_words(url,50000)
     try:
         await stream_openai_multi(f"{summarizeArticle} {scrapedSummaryUrl}",history,channel) 
         print("Summarizing...")   
@@ -402,8 +402,8 @@ async def silentMultiGoogle(search1, search2, search3, question, channel):
     
         print("Scraping...")
         #scrape these results with beautiful soup.. mmmm
-        scraped1 = get_first_500_words(url1,750)
-        scraped2 = get_first_500_words(url2,750)
+        scraped1 = get_first_500_words(url1,4000)
+        scraped2 = get_first_500_words(url2,4000)
         #scraped3 = get_first_500_words(url3,500)
         #put them all in one variable
         allScraped = (f"\n\n\nURL:{url1}\n -- {scraped1}" or "") + " " + (f"\n\n\nURL:{url2}\n -- {scraped2}" or "")# + " " + (f"\n\n\nURL:{url3}\n -- {scraped3} or ")
@@ -571,17 +571,22 @@ async def on_ready():
         positiveMessage = await ask_openai(f"It's the morning, Please say something nice to get my day started off on the right",history)                
         await botFunctions.purpleMessage(positiveMessage,channel)
         resetConvoHistory()
-        #pull weather from specific site.
-        todaysForecast = get_first_500_words(weatherURL,750)
-        await stream_openai_multi(f"""Weather data for {location} today: ```{todaysForecast}```\n\n  
-            Instructions: Please provide with the forecast for today as well as your own comment on it.\n
-            Ensure you provide me with the current temperature as well as how it will change throughout the day.\n
-            Use Markdown formatting and emoji's.""",history, channel)        
-        weatherPicPrompt = await ask_openai("You just told me the weather, now describe an outdoor scene depicting that weather. Reply with ONLY the description and nothing more",history)
+        question = "Find me 3 different uplifting news stories from around the world. Title them, summarize them in three sentences each, then leave me with a positive conclusion of them to start my day."
+        searchTerms = await ask_openai(f"Come up with 3 different web searches that you think would help you answer this question :```{question}``` Reply with ONLY the search terms, prepended by 1., 2. then 3. Do not use emojis or explain them.",history)
+        # let gpt4 make the terms, and the llm will respond to data
+        searchTerms = searchTerms.replace('"', '')
+        #split the search terms into three separate variables
+        splitSearch=searchTerms.split("\n")
+        search1=splitSearch[0]
+        search2=splitSearch[1]
+        search3=splitSearch[2]
+        await silentMultiGoogle(search1, search2, search3, question, channel)
+        calculateCost()
+        await botFunctions.tealMessage(f"{model} 🎟️ Tokens {totalTokens} ", channel)      
+               
+        newsPicPrompt = await ask_openai("You just told me some uplifting news, now describe a scene that describes one of the stories you told me. Reply with ONLY the description and nothing more",history)
         if is_port_listening(comfyIP,comfyPort) == True:
-            await botFunctions.comfyRefined(weatherPicPrompt,1,channel,w,h)
-        else:
-            await botFunctions.tealMessage("Sorry, my image generator isn't currently online.",channel)
+            await botFunctions.comfyRefined(newsPicPrompt,1,channel,w,h)
         resetConvoHistory()
         #reset model back to whatever the userleft it at
         # await setFormerModel(formerModel)
@@ -620,9 +625,7 @@ async def on_message(message):
             streamedMessage = await channel.send("🔎")
             try:
                 searchTerms = await ask_openai(f"Come up with 3 different web searches that you think would help you answer this question :```{question}``` Reply with ONLY the search terms, prepended by 1., 2. then 3. Do not use emojis or explain them.",history)
-                # let gpt3 or 4 make the terms, and the llm will respond to data
-                if is_port_listening(lmstudioIP,lmstudioPort) == True:
-                    await setModeLLM()
+                # let gpt4 make the terms, and the llm will respond to data
                 await streamedMessage.delete()
                 #strip quotes
                 searchTerms = searchTerms.replace('"', '')
@@ -634,7 +637,7 @@ async def on_message(message):
                 await silentMultiGoogle(search1, search2, search3, question, channel)
                 calculateCost()
                 await botFunctions.tealMessage(f"{model} 🎟️ Tokens {totalTokens} ",message.channel)
-                await setFormerModel(formerModel)
+                
                 
             except Exception as e:
                 error_message = str(e)
