@@ -528,6 +528,7 @@ async def setFormerModel(formerModel):
 @client.event
 async def on_ready():
     global modelTemp
+    global fullDate
     global w
     global h
     global notifications
@@ -571,7 +572,7 @@ async def on_ready():
         positiveMessage = await ask_openai(f"It's the morning, Please say something nice to get my day started off on the right",history)                
         await botFunctions.purpleMessage(positiveMessage,channel)
         resetConvoHistory()
-        question = "Find me 3 different uplifting news stories from around the world. Title them, summarize them in three sentences each, then leave me with a positive conclusion of them to start my day."
+        question = f"Find me an uplifting news story from anywhere. Keep them kind of current, the date is {fullDate} Title it, summarize it three sentences max, leave a URL of where you found it, then leave me with a positive comment of it to start my day."
         searchTerms = await ask_openai(f"Come up with 3 different web searches that you think would help you answer this question :```{question}``` Reply with ONLY the search terms, prepended by 1., 2. then 3. Do not use emojis or explain them.",history)
         # let gpt4 make the terms, and the llm will respond to data
         searchTerms = searchTerms.replace('"', '')
