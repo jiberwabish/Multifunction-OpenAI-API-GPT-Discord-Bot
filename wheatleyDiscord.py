@@ -716,10 +716,6 @@ async def on_message(message):
     elif message.content.startswith('http') or message.content.startswith('www'):
         resetConvoHistory()
         formerModel = model
-        if is_port_listening(lmstudioIP,lmstudioPort) == True:
-            await setModeLLM()
-        else: #lm studio isn't running
-            await botFunctions.tealMessage(f"{lmStudioModel} is not online.. Sticking with {model}.",message.channel)
         vidID = ""        
         try:
             if 'youtube.com' in message.content:
